@@ -530,12 +530,8 @@ function renderHistory() {
     const sprint2Items = (race.sprint2Drivers || []).slice().sort((a, b) => Number(a.position) - Number(b.position))
       .map(driver => `<li>P${driver.position || "-"} · ${escapeHtml(driver.name)} · ${driver.points || 0} punten</li>`).join("");
 
-    const raceRegistrations = Array.isArray(race.registrations) ? race.registrations.slice().sort((a, b) => Number(a.createdAt || 0) - Number(b.createdAt || 0)) : [];
-    const registrationItems = raceRegistrations.length
-      ? raceRegistrations.map(item => `<li>${escapeHtml(item.naam || "-")} · ${escapeHtml(item.email || "-")} · ${escapeHtml(item.telefoon || "-")} · ${escapeHtml(item.status || "nieuw")}</li>`).join("")
-      : '<li>Nog geen bevestigde of reserve-inschrijvingen.</li>';
+        const actions = currentUser ? `
 
-    const actions = currentUser ? `
       <div class="race-actions">
         <button type="button" class="secondary edit-race-btn" data-id="${race.id}">Uitslag bewerken</button>
         <button type="button" class="danger delete-race-btn" data-id="${race.id}">Race verwijderen</button>
@@ -554,11 +550,7 @@ function renderHistory() {
         <div class="split-columns">
           <div><h4>Sprint 1</h4><ol class="race-drivers">${sprint1Items}</ol></div>
           <div><h4>Sprint 2</h4><ol class="race-drivers">${sprint2Items}</ol></div>
-        </div>
-        <div class="split-columns" style="margin-top:14px;grid-template-columns:1fr;">
-          <div><h4>Aanmeldingen voor deze race</h4><ol class="race-drivers">${registrationItems}</ol></div>
-        </div>
-      </article>
+        </div>      </article>
     `;
   }).join("");
 
@@ -613,29 +605,47 @@ function exportData() {
   setMessage("Export gestart.", "success");
 }
 
+function buildRaceDriverEntry(registration, existingDriver = null) {
+  return {
+    ...(existingDriver || {}),
+    name: registration.naam,
+    position: existingDriver?.position ?? "",
+    points: existingDriver?.points ?? 0
+  };
+}
+
 async function syncRegistrationToRace(registration, nextStatus) {
   const race = races.find(item => item.id === registration.raceId);
   if (!race) throw new Error("Race niet gevonden");
 
-  const existingRegistrations = Array.isArray(race.registrations) ? race.registrations : [];
-  const filteredRegistrations = existingRegistrations.filter(item => item && item.id !== registration.id);
+  const registrationNameKey = normalizeDriverName(registration.naam);
+  const sprint1Drivers = Array.isArray(race.sprint1Drivers) ? [...race.sprint1Drivers] : [];
+  const sprint2Drivers = Array.isArray(race.sprint2Drivers) ? [...race.sprint2Drivers] : [];
 
-  if (nextStatus === "goedgekeurd" || nextStatus === "reserve") {
-    filteredRegistrations.push({
-      id: registration.id,
-      raceId: registration.raceId,
-      raceName: registration.raceName,
-      naam: registration.naam,
-      email: registration.email,
-      telefoon: registration.telefoon,
-      status: nextStatus,
-      createdAt: registration.createdAt || Date.now()
-    });
+  const sprint1Index = sprint1Drivers.findIndex(item => normalizeDriverName(item?.name) === registrationNameKey);
+  const sprint2Index = sprint2Drivers.findIndex(item => normalizeDriverName(item?.name) === registrationNameKey);
+
+  if (nextStatus === "goedgekeurd") {
+    if (sprint1Index >= 0) {
+      sprint1Drivers[sprint1Index] = buildRaceDriverEntry(registration, sprint1Drivers[sprint1Index]);
+    } else {
+      sprint1Drivers.push(buildRaceDriverEntry(registration));
+    }
+
+    if (sprint2Index >= 0) {
+      sprint2Drivers[sprint2Index] = buildRaceDriverEntry(registration, sprint2Drivers[sprint2Index]);
+    } else {
+      sprint2Drivers.push(buildRaceDriverEntry(registration));
+    }
+  } else if (nextStatus === "afgewezen") {
+    if (sprint1Index >= 0) sprint1Drivers.splice(sprint1Index, 1);
+    if (sprint2Index >= 0) sprint2Drivers.splice(sprint2Index, 1);
   }
 
   await set(ref(db, `${DB_PATH}/${race.id}`), {
     ...race,
-    registrations: filteredRegistrations
+    sprint1Drivers,
+    sprint2Drivers
   });
 }
 
@@ -696,11 +706,16 @@ function renderRegistrations() {
       if (!registration) return;
       try {
         await syncRegistrationToRace(registration, nextStatus);
-        await set(ref(db, `${REGISTRATIONS_PATH}/${registrationId}`), {
-          ...registration,
-          status: nextStatus
-        });
-        setMessage(`Inschrijving van ${registration.naam} is bijgewerkt naar ${nextStatus} en gekoppeld aan de concept race.`, 'success');
+        if (nextStatus === "goedgekeurd" || nextStatus === "afgewezen") {
+          await remove(ref(db, `${REGISTRATIONS_PATH}/${registrationId}`));
+          setMessage(`Inschrijving van ${registration.naam} is verwerkt en uit de inschrijvingenlijst verwijderd.`, 'success');
+        } else {
+          await set(ref(db, `${REGISTRATIONS_PATH}/${registrationId}`), {
+            ...registration,
+            status: nextStatus
+          });
+          setMessage(`Inschrijving van ${registration.naam} is bijgewerkt naar ${nextStatus}.`, 'success');
+        }
       } catch (error) {
         console.error(error);
         setMessage('Status bijwerken mislukt.', 'error');
