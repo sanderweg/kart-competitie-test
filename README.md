@@ -39,3 +39,6 @@ Je kunt dan de stand zien, maar pas na inloggen kun je wijzigen.
 - nieuwe Firebase node: `kartCompetitie/inschrijvingen`
 - admin toont nu inschrijvingen en statusknoppen
 - nog zonder automatische e-mailverzending
+
+- goedgekeurde en reserve-inschrijvingen worden nu automatisch toegevoegd aan de juiste concept-race onder `registrations`
+- afgewezen inschrijvingen worden uit die race-lijst verwijderd
