@@ -1,4 +1,4 @@
-import { auth, db, DB_PATH, REGISTRATIONS_PATH, ref, push, set, remove, onValue, signOut, onAuthStateChanged, getPoints, formatDate, formatDateTime, escapeHtml, mergeResults, buildSeasonRows } from "./firebase.js";
+import { auth, db, DB_PATH, REGISTRATIONS_PATH, REGISTRATIONS_HISTORY_PATH, ref, push, set, remove, onValue, signOut, onAuthStateChanged, getPoints, formatDate, formatDateTime, escapeHtml, mergeResults, buildSeasonRows } from "./firebase.js";
 
 const raceNameInput = document.getElementById("raceName");
 const raceDateInput = document.getElementById("raceDate");
@@ -35,6 +35,7 @@ let registrations = [];
 let currentUser = null;
 let editingRaceId = null;
 let selectedRaceId = null;
+const MAX_RACE_PARTICIPANTS = 22;
 
 function setMessage(text, type = "") {
   messageEl.textContent = text || "";
@@ -614,6 +615,25 @@ function buildRaceDriverEntry(registration, existingDriver = null) {
   };
 }
 
+function getRaceParticipantCount(race, excludeName = "") {
+  const excluded = normalizeDriverName(excludeName);
+  const names = new Set();
+  [...(race?.sprint1Drivers || []), ...(race?.sprint2Drivers || [])].forEach(driver => {
+    const key = normalizeDriverName(driver?.name);
+    if (!key || key === excluded) return;
+    names.add(key);
+  });
+  return names.size;
+}
+
+async function archiveProcessedRegistration(registration, status) {
+  await set(ref(db, `${REGISTRATIONS_HISTORY_PATH}/${registration.id}`), {
+    ...registration,
+    status,
+    processedAt: Date.now()
+  });
+}
+
 async function syncRegistrationToRace(registration, nextStatus) {
   const race = races.find(item => item.id === registration.raceId);
   if (!race) throw new Error("Race niet gevonden");
@@ -705,8 +725,23 @@ function renderRegistrations() {
       const registration = registrations.find(item => item.id === registrationId);
       if (!registration) return;
       try {
+        if (nextStatus === "goedgekeurd") {
+          const race = races.find(item => item.id === registration.raceId);
+          if (!race) throw new Error("Race niet gevonden");
+          const currentCount = getRaceParticipantCount(race, registration.naam);
+          if (currentCount >= MAX_RACE_PARTICIPANTS) {
+            await set(ref(db, `${REGISTRATIONS_PATH}/${registrationId}`), {
+              ...registration,
+              status: "reserve"
+            });
+            setMessage(`Race ${race.name} zit vol. ${registration.naam} staat nu op de reservelijst.`, 'error');
+            return;
+          }
+        }
+
         await syncRegistrationToRace(registration, nextStatus);
         if (nextStatus === "goedgekeurd" || nextStatus === "afgewezen") {
+          await archiveProcessedRegistration(registration, nextStatus);
           await remove(ref(db, `${REGISTRATIONS_PATH}/${registrationId}`));
           setMessage(`Inschrijving van ${registration.naam} is verwerkt en uit de inschrijvingenlijst verwijderd.`, 'success');
         } else {

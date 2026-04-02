@@ -1,5 +1,5 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
-import { getDatabase, ref, push, set, remove, onValue } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-database.js";
+import { getDatabase, ref, push, set, remove, onValue, get } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-database.js";
 import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
 
 export const firebaseConfig = {
@@ -15,13 +15,14 @@ export const firebaseConfig = {
 export const DB_PATH = "kartCompetitie/races";
 export const CALENDAR_PATH = "kartCompetitie/calendar";
 export const REGISTRATIONS_PATH = "kartCompetitie/inschrijvingen";
+export const REGISTRATIONS_HISTORY_PATH = "kartCompetitie/inschrijvingenHistorie";
 export const POINTS_MAP = {0:0,1:25,2:22,3:20,4:19,5:18,6:17,7:16,8:15,9:14,10:13,11:12,12:11,13:10,14:9,15:8,16:7,17:6,18:5,19:4,20:3,21:2,22:1};
 
 export const app = initializeApp(firebaseConfig);
 export const db = getDatabase(app);
 export const auth = getAuth(app);
 
-export { ref, push, set, remove, onValue, signInWithEmailAndPassword, signOut, onAuthStateChanged };
+export { ref, push, set, remove, onValue, get, signInWithEmailAndPassword, signOut, onAuthStateChanged };
 
 export function getPoints(position) {
   return POINTS_MAP[position] ?? 0;
