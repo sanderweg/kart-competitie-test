@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Kart Competitie</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body class="landing-body">
+  <div class="landing-bg"></div>
+  <div class="landing-shell">
+    
+    <section class="photo-collage">
+      <div class="collage-track" id="collageTrack"></div>
+    </section>
+
+    <section class="landing-hero">
+      <div class="landing-hero-left">
+        <p class="eyebrow">Zware Jongens Competitie</p>
+        <h1>🏁 Live races, seizoensstand en beheerdashboard</h1>
+        <p class="sub large-sub">
+          Volg alle sprintresultaten live, bekijk de seizoensstand en beheer de volledige competitie
+          vanuit één centrale omgeving.
+        </p>
+
+        <div class="landing-actions">
+          <a class="btn btn-primary" href="public.html">Bekijk tussenstand</a>
+          <a class="btn btn-secondary" href="inschrijven.html">Inschrijven voor race</a>
+          <a class="btn btn-secondary" href="login.html">Beheerder login</a>
+        </div>
+
+        <div class="landing-stats">
+          <div class="stat-card">
+            <span class="stat-label">Structuur</span>
+            <strong>2 sprint races</strong>
+            <span class="stat-sub">per race van 10 minuten</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-label">Scoring</span>
+            <strong>2 slechtste sprints vervallen</strong>
+            <span class="stat-sub">gemiste races tellen als 0 + 0</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-label">Toegang</span>
+            <strong>Beveiligd beheer</strong>
+            <span class="stat-sub">alleen voor admins</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="landing-hero-right">
+        
+        <div class="preview-card">
+          <div class="preview-top">
+            <span class="preview-pill">Algemeen reglement</span>
+            <span class="preview-dot"></span>
+          </div>
+
+          <h3>📜 Algemeen reglement</h3>
+
+          <div class="preview-list">
+            <div class="preview-item">
+              <div class="preview-icon">🏁</div>
+              <div>
+                <strong>Zware Jongens competitie</strong>
+                <p>
+                  Wij zijn een groep personen welke een zelfstandig kampioenschap organiseren
+                  voor de zwaardere rijder, van oudsher "de Zware Jongens".
+                </p>
+              </div>
+            </div>
+
+            <div class="preview-item">
+              <div class="preview-icon">⚖️</div>
+              <div>
+                <strong>Gewichtsregel</strong>
+                <p>
+                  100 kg. start gewicht is verplicht bij aanvang van de wedstrijd.
+                  Max 25 kg. straflood is toegestaan.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+
+    <section class="card full homepage-agenda-card">
+      <div class="section-row">
+        <h2>🗓️ Race agenda</h2>
+        <span class="preview-pill">Live vanuit beheer</span>
+      </div>
+      <p class="sub">Alle geplande races verschijnen hier automatisch zodra ze in het beheerpaneel worden toegevoegd.</p>
+      <div id="homepageAgendaList" class="agenda-public-list"></div>
+    </section>
+
+  </div>
+
+  <script type="module">
+    import { db, DB_PATH, ref, onValue, escapeHtml, formatDateTime } from "./firebase.js";
+
+    const homepageAgendaList = document.getElementById("homepageAgendaList");
+
+    function renderHomepageAgenda(items) {
+      if (!homepageAgendaList) return;
+      if (!items.length) {
+        homepageAgendaList.innerHTML = '<div class="empty">Er staan nog geen races in de agenda.</div>';
+        return;
+      }
+
+      homepageAgendaList.innerHTML = items.map(item => `
+        <article class="agenda-public-item">
+          <div>
+            <h3>${escapeHtml(item.name || item.title || "")}</h3>
+            <div class="race-meta">${escapeHtml(formatDateTime(item.date, item.time))}</div>
+            ${item.location ? `<div class="race-meta">${escapeHtml(item.location)}</div>` : ""}
+            ${item.note ? `<div class="race-meta">${escapeHtml(item.note)}</div>` : ""}
+          </div>
+        </article>
+      `).join("");
+    }
+
+    onValue(ref(db, DB_PATH), snapshot => {
+      const data = snapshot.val() || {};
+      const items = Object.values(data)
+        .filter(item => item && item.isDraft)
+        .sort((a, b) => {
+          const aKey = `${a.date || ""}T${a.time || "00:00"}`;
+          const bKey = `${b.date || ""}T${b.time || "00:00"}`;
+          return new Date(aKey) - new Date(bKey);
+        });
+      renderHomepageAgenda(items);
+    });
+  </script>
+
+  <script>
+    async function loadCollage() {
+      const track = document.getElementById("collageTrack");
+      if (!track) return;
+
+      track.innerHTML = "<div class='collage-loading'>Foto's laden...</div>";
+
+      try {
+        const response = await fetch("images/images.json");
+        if (!response.ok) throw new Error("images.json niet gevonden");
+
+        const images = await response.json();
+        const validImages = Array.isArray(images) ? images.filter(Boolean) : [];
+
+        if (!validImages.length) {
+          track.innerHTML = "<div class='collage-loading'>Nog geen foto's gevonden in images/images.json</div>";
+          return;
+        }
+
+        track.innerHTML = "";
+
+        [...validImages, ...validImages].forEach((file, index) => {
+          const img = document.createElement("img");
+          img.src = "images/" + file;
+          img.alt = "Zware Jongens foto " + (index + 1);
+          img.loading = "lazy";
+          img.tabIndex = 0;
+          img.addEventListener("click", () => openLightbox("images/" + file, img.alt));
+          img.addEventListener("keydown", (event) => {
+            if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              openLightbox("images/" + file, img.alt);
+            }
+          });
+          img.onerror = () => {
+            img.style.display = "none";
+          };
+          track.appendChild(img);
+        });
+      } catch (error) {
+        track.innerHTML = "<div class='collage-loading'>Collage werkt pas als je in de map images een images.json bestand met je fotonamen zet.</div>";
+      }
+    }
+
+    function openLightbox(src, alt) {
+      const lightbox = document.getElementById("lightbox");
+      const lightboxImage = document.getElementById("lightboxImage");
+      if (!lightbox || !lightboxImage) return;
+      lightboxImage.src = src;
+      lightboxImage.alt = alt || "Vergrote foto";
+      lightbox.classList.remove("hidden");
+      lightbox.setAttribute("aria-hidden", "false");
+      document.body.style.overflow = "hidden";
+    }
+
+    function closeLightbox() {
+      const lightbox = document.getElementById("lightbox");
+      const lightboxImage = document.getElementById("lightboxImage");
+      if (!lightbox || !lightboxImage) return;
+      lightbox.classList.add("hidden");
+      lightbox.setAttribute("aria-hidden", "true");
+      lightboxImage.src = "";
+      document.body.style.overflow = "";
+    }
+
+    window.addEventListener("DOMContentLoaded", () => {
+      loadCollage();
+
+      const lightbox = document.getElementById("lightbox");
+      const lightboxClose = document.getElementById("lightboxClose");
+
+      if (lightboxClose) {
+        lightboxClose.addEventListener("click", closeLightbox);
+      }
+
+      if (lightbox) {
+        lightbox.addEventListener("click", (event) => {
+          if (event.target === lightbox) closeLightbox();
+        });
+      }
+
+      document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") closeLightbox();
+      });
+    });
+  </script>
+
+
+  <div id="lightbox" class="lightbox hidden" aria-hidden="true">
+    <button id="lightboxClose" class="lightbox-close" type="button" aria-label="Sluiten">×</button>
+    <img id="lightboxImage" class="lightbox-image" alt="Vergrote foto" />
+  </div>
+</body>
+
+</html>

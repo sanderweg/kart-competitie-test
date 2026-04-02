@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Leaderboard</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app">
+    <header class="hero">
+      <div>
+        <a class="back-link" href="index.html">← Terug naar home</a>
+        <p class="eyebrow">Kart Competitie</p>
+        <h1>🏆 Live leaderboard</h1>
+        <p class="sub">Openbare pagina. De 2 slechtste sprints tellen niet mee. Gemiste races tellen als 0 + 0.</p>
+      </div>
+      <div class="hero-right">
+        <div id="connectionStatus" class="status">🟡 Verbinden...</div>
+        <a class="btn btn-secondary btn-inline" href="login.html">Beheerder login</a>
+      </div>
+    </header>
+
+    <main class="grid">
+      <section class="card full">
+        <h2>🏆 Seizoensstand</h2>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Driver</th>
+                <th>Punten</th>
+                <th>Sprints</th>
+                <th>Geschrapt</th>
+                <th>Beste positie</th>
+              </tr>
+            </thead>
+            <tbody id="seasonBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="card full">
+        <div class="section-row"><h2>📋 Race overzicht</h2></div>
+        <div class="race-filter-box">
+          <div class="race-filter-head">
+            <strong>Kies een race</strong>
+            <span>Bekijk één specifieke race</span>
+          </div>
+          <select id="raceSelect" class="race-select"></select>
+          <div id="raceTabs" class="race-tabs"></div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Driver</th>
+                <th>Race</th>
+                <th>Sprint 1</th>
+                <th>Sprint 2</th>
+                <th>Totaal punten</th>
+              </tr>
+            </thead>
+            <tbody id="leaderboardBody"></tbody>
+          </table>
+        </div>
+      </section>
+</main>
+  </div>
+
+  <script type="module" src="public.js"></script>
+</body>
+</html>

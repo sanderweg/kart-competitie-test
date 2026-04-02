@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Beheerpaneel</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app">
+    <header class="hero">
+      <div>
+        <a class="back-link" href="index.html">← Terug naar home</a>
+        <p class="eyebrow">Kart Competitie</p>
+        <h1>🏁 Beheerpaneel</h1>
+        <p class="sub">Alleen toegankelijk voor beheerders. Hier kun je races toevoegen, bewerken, verwijderen en exporteren.</p>
+      </div>
+      <div class="hero-right">
+        <div id="connectionStatus" class="status">🟡 Verbinden...</div>
+        <div id="authStatus" class="status secondary-status">🔒 Controleren...</div>
+        <button id="logoutBtn" class="btn btn-secondary btn-inline" type="button">Uitloggen</button>
+      </div>
+    </header>
+
+    <main class="grid">
+      <section class="card">
+        <div class="section-row">
+          <h2 id="formTitle">Nieuwe race</h2>
+          <span id="editBadge" class="edit-badge hidden">Bewerkmodus</span>
+        </div>
+
+        <div class="field">
+          <label for="raceName">Race naam</label>
+          <input id="raceName" type="text" placeholder="Bijv. Clubrace 1" />
+        </div>
+
+        <div class="field">
+          <label for="raceDate">Datum</label>
+          <input id="raceDate" type="date" />
+        </div>
+
+        <div class="field">
+          <label for="raceTime">Tijd</label>
+          <input id="raceTime" type="time" />
+        </div>
+
+        <div class="field">
+          <label for="raceLocation">Locatie</label>
+          <input id="raceLocation" type="text" placeholder="Bijv. Kartbaan Eindhoven" />
+        </div>
+
+        <div class="field">
+          <label for="raceNote">Opmerking</label>
+          <input id="raceNote" type="text" placeholder="Bijv. Aanwezig om 18:30" />
+        </div>
+
+        <div class="sprint-card">
+          <div class="section-row">
+            <h3>Sprint 1 (10 min)</h3>
+            <button id="addSprint1DriverBtn" class="secondary" type="button">+ Driver toevoegen</button>
+          </div>
+          <div id="sprint1DriversList" class="drivers-list"></div>
+        </div>
+
+        <div class="sprint-card">
+          <div class="section-row">
+            <h3>Sprint 2 (10 min)</h3>
+            <button id="addSprint2DriverBtn" class="secondary" type="button">+ Driver toevoegen</button>
+          </div>
+          <div id="sprint2DriversList" class="drivers-list"></div>
+        </div>
+
+        <div class="actions">
+          <button id="saveRaceBtn" type="button">Race opslaan</button>
+          <button id="saveDraftBtn" class="secondary" type="button">Als concept opslaan</button>
+          <button id="resetFormBtn" class="secondary" type="button">Leegmaken</button>
+          <button id="cancelEditBtn" class="secondary hidden" type="button">Bewerken annuleren</button>
+          <button id="exportBtn" class="secondary" type="button">Export JSON</button>
+          <button id="clearAllBtn" class="danger" type="button">Alles wissen</button>
+        </div>
+
+        <p id="message" class="message"></p>
+        <datalist id="driverSuggestions"></datalist>
+      </section>
+
+      <section class="card">
+        <h2>🏆 Seizoensstand</h2>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Driver</th>
+                <th>Punten</th>
+                <th>Sprints</th>
+                <th>Geschrapt</th>
+                <th>Beste positie</th>
+              </tr>
+            </thead>
+            <tbody id="seasonBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="card full">
+        <div class="section-row"><h2>📋 Race overzicht</h2></div>
+        <div class="race-filter-box">
+          <div class="race-filter-head">
+            <strong>Kies een race</strong>
+            <span>Bekijk alle races of filter op één specifieke race</span>
+          </div>
+          <select id="raceSelect" class="race-select"></select>
+          <div id="raceTabs" class="race-tabs"></div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Driver</th>
+                <th>Race</th>
+                <th>Sprint 1</th>
+                <th>Sprint 2</th>
+                <th>Totaal punten</th>
+              </tr>
+            </thead>
+            <tbody id="leaderboardBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="card full">
+        <h2>🗂️ Race geschiedenis</h2>
+        <div id="historyList" class="history-list"></div>
+      </section>
+      <section class="card full">
+        <div class="section-row"><h2>📥 Inschrijvingen</h2></div>
+        <div id="inschrijvingenList" class="history-list"></div>
+      </section>
+    </main>
+  </div>
+
+  <script type="module" src="admin.js"></script>
+</body>
+</html>
