@@ -1,70 +1,79 @@
-import { auth, signInWithEmailAndPassword, onAuthStateChanged, sendPasswordResetEmail } from "./firebase.js";
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Beheerder login</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body class="landing-body">
+  <div class="landing-bg"></div>
+  <div class="landing-shell narrow">
+    <section class="login-panel">
+      <div class="login-left">
+        <a class="back-link" href="index.html">â† Terug naar home</a>
+        <p class="eyebrow">Beheerder</p>
+        <h1>Inloggen op het beheerpaneel</h1>
+        <p class="sub large-sub">
+          Gebruik je beheerdersaccount om races toe te voegen, resultaten aan te passen
+          en exports te maken van de competitie.
+        </p>
 
-const emailInput = document.getElementById("emailInput");
-const passwordInput = document.getElementById("passwordInput");
-const loginBtn = document.getElementById("loginBtn");
-const resetPasswordBtn = document.getElementById("resetPasswordBtn");
-const loginMessage = document.getElementById("loginMessage");
+        <div class="login-feature-list">
+          <div class="login-feature">
+            <span class="login-feature-icon">ðŸ› ï¸</span>
+            <div>
+              <strong>Volledig beheer</strong>
+              <p>Voeg nieuwe races toe en bewerk bestaande uitslagen.</p>
+            </div>
+          </div>
+          <div class="login-feature">
+            <span class="login-feature-icon">â˜ï¸</span>
+            <div>
+              <strong>Live database</strong>
+              <p>Alle apparaten zien direct dezelfde data.</p>
+            </div>
+          </div>
+          <div class="login-feature">
+            <span class="login-feature-icon">ðŸ”’</span>
+            <div>
+              <strong>Beveiligde toegang</strong>
+              <p>Alleen geautoriseerde gebruikers kunnen wijzigen.</p>
+            </div>
+          </div>
+        </div>
+      </div>
 
-function setMessage(text, type = "") {
-  loginMessage.textContent = text || "";
-  loginMessage.className = type ? "message " + type : "message";
-}
+      <div class="login-right">
+        <div class="login-card">
+          <div class="login-card-top">
+            <span class="preview-pill">Admin access</span>
+          </div>
+          <h2>Login</h2>
+          <p class="sub">Na succesvol inloggen word je doorgestuurd naar het beheerpaneel.</p>
 
-function getFriendlyAuthError(error) {
-  const code = error?.code || "";
-  switch (code) {
-    case "auth/invalid-email":
-      return "Dit e-mailadres is ongeldig.";
-    case "auth/missing-email":
-      return "Vul eerst een e-mailadres in.";
-    case "auth/user-not-found":
-      return "Voor dit e-mailadres is geen account gevonden.";
-    case "auth/invalid-credential":
-    case "auth/wrong-password":
-      return "E-mailadres of wachtwoord klopt niet.";
-    case "auth/too-many-requests":
-      return "Te veel pogingen. Wacht even en probeer opnieuw.";
-    case "auth/operation-not-allowed":
-      return "Zet in Firebase Authentication Email/Password aan.";
-    case "auth/unauthorized-domain":
-      return "Dit domein staat nog niet bij Authorized domains in Firebase.";
-    default:
-      return "Er ging iets mis. Probeer opnieuw.";
-  }
-}
+          <div class="field">
+            <label for="emailInput">E-mailadres</label>
+            <input id="emailInput" type="email" placeholder="beheer@voorbeeld.nl" />
+          </div>
 
-onAuthStateChanged(auth, user => {
-  if (user) window.location.href = "admin.html";
-});
+          <div class="field">
+            <label for="passwordInput">Wachtwoord</label>
+            <input id="passwordInput" type="password" placeholder="Wachtwoord" />
+          </div>
 
-loginBtn?.addEventListener("click", async () => {
-  try {
-    const email = emailInput.value.trim();
-    const password = passwordInput.value;
-    if (!email || !password) {
-      setMessage("Vul e-mailadres en wachtwoord in.", "error");
-      return;
-    }
-    await signInWithEmailAndPassword(auth, email, password);
-    window.location.href = "admin.html";
-  } catch (error) {
-    console.error(error);
-    setMessage(getFriendlyAuthError(error), "error");
-  }
-});
+          <div class="landing-actions vertical-actions">
+            <button id="loginBtn" class="btn btn-primary" type="button">Inloggen</button>
+            <button id="resetPasswordBtn" class="btn btn-secondary" type="button">Wachtwoord vergeten?</button>
+            <a class="btn btn-secondary" href="public.html">Alleen bekijken</a>
+          </div>
 
-resetPasswordBtn?.addEventListener("click", async () => {
-  try {
-    const email = emailInput.value.trim();
-    if (!email) {
-      setMessage("Vul eerst je admin e-mailadres in.", "error");
-      return;
-    }
-    await sendPasswordResetEmail(auth, email);
-    setMessage("Resetmail verstuurd. Controleer ook je spammap.", "success");
-  } catch (error) {
-    console.error(error);
-    setMessage(getFriendlyAuthError(error), "error");
-  }
-});
+          <p id="loginMessage" class="message"></p>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script type="module" src="login.js"></script>
+</body>
+</html>
