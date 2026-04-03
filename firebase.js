@@ -1,6 +1,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
 import { getDatabase, ref, push, set, remove, onValue, get } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-database.js";
-import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
+import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
 
 export const firebaseConfig = {
   apiKey: "AIzaSyAHJ_U7_H7rO1CLDEmgYm2bY-956R2B3jI",
@@ -22,7 +22,7 @@ export const app = initializeApp(firebaseConfig);
 export const db = getDatabase(app);
 export const auth = getAuth(app);
 
-export { ref, push, set, remove, onValue, get, signInWithEmailAndPassword, signOut, onAuthStateChanged };
+export { ref, push, set, remove, onValue, get, signInWithEmailAndPassword, signOut, onAuthStateChanged, sendPasswordResetEmail };
 
 export function getPoints(position) {
   return POINTS_MAP[position] ?? 0;
@@ -142,7 +142,6 @@ export function buildSeasonRows(races) {
     a.driver.localeCompare(b.driver, "nl")
   );
 }
-
 
 export function formatDateTime(dateString, timeString = "") {
   if (!dateString) return "Geen datum";
