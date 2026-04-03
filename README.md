@@ -16,3 +16,8 @@ Deze versie bevat:
 ## Let op
 - deze versie verstuurt nog geen e-mails
 - de inschrijvingen werken via Firebase Realtime Database
+
+
+## Mail met Resend
+In deze zip zit nu ook een `functions/` map voor automatische e-mails via Firebase Functions en Resend.
+Zie `FIREBASE_FUNCTIONS_README.md` voor installatie en deploy.
