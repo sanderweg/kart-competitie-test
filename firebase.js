@@ -1,15 +1,15 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
 import { getDatabase, ref, push, set, remove, onValue, get } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-database.js";
-import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
+import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
 
 export const firebaseConfig = {
-  apiKey: "AIzaSyAMkgqa_PrSGPwBhDZtljxJZbVbwHq_qCQ",
-  authDomain: "karting-competitie-26804.firebaseapp.com",
-  databaseURL: "https://karting-competitie-26804-default-rtdb.europe-west1.firebasedatabase.app",
-  projectId: "karting-competitie-26804",
-  storageBucket: "karting-competitie-26804.firebasestorage.app",
-  messagingSenderId: "144090410040",
-  appId: "1:144090410040:web:6f9b22645926da62f78acd"
+  apiKey: "AIzaSyAHJ_U7_H7rO1CLDEmgYm2bY-956R2B3jI",
+  authDomain: "karting-competitie.firebaseapp.com",
+  databaseURL: "https://karting-competitie-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "karting-competitie",
+  storageBucket: "karting-competitie.firebasestorage.app",
+  messagingSenderId: "915335846004",
+  appId: "1:915335846004:web:5fbc6592f60a93a9031921"
 };
 
 export const DB_PATH = "kartCompetitie/races";
@@ -22,7 +22,7 @@ export const app = initializeApp(firebaseConfig);
 export const db = getDatabase(app);
 export const auth = getAuth(app);
 
-export { ref, push, set, remove, onValue, get, signInWithEmailAndPassword, signOut, onAuthStateChanged };
+export { ref, push, set, remove, onValue, get, signInWithEmailAndPassword, signOut, onAuthStateChanged, sendPasswordResetEmail };
 
 export function getPoints(position) {
   return POINTS_MAP[position] ?? 0;

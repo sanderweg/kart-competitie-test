@@ -240,3 +240,12 @@ button:hover,.btn:hover{transform:translateY(-1px)}button:disabled{opacity:.55;c
 .registration-card{background:rgba(23,26,34,.92);border:1px solid var(--border);border-radius:24px;box-shadow:var(--shadow);padding:24px}
 .form-help{color:var(--muted);margin-bottom:18px}
 select{width:100%;background:var(--panel-2);color:var(--text);border:1px solid var(--border);border-radius:12px;padding:12px;outline:none}
+
+
+.reset-info-box{
+  margin-top:14px;
+  padding:14px;
+  background:rgba(255,255,255,.03);
+  border:1px solid var(--border);
+  border-radius:16px;
+}
