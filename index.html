@@ -135,50 +135,210 @@
   </script>
 
   <script>
-    async function loadCollage() {
-      const track = document.getElementById("collageTrack");
-      if (!track) return;
+    let collageItems = [];
+    let collageViewport = null;
+    let collageTrack = null;
+    let autoRaf = 0;
+    let lastTs = 0;
+    let autoPaused = false;
+    let userInteracting = false;
+    let resumeTimer = null;
 
-      track.innerHTML = "<div class='collage-loading'>Foto's laden...</div>";
+    let isDragging = false;
+    let dragStartX = 0;
+    let dragStartScroll = 0;
+    let movedDuringDrag = false;
+
+    async function loadCollage() {
+      collageViewport = document.querySelector(".photo-collage");
+      collageTrack = document.getElementById("collageTrack");
+      if (!collageTrack) return;
+
+      collageTrack.innerHTML = "<div class='collage-loading'>Foto's laden...</div>";
 
       try {
         const response = await fetch("images/images.json", { cache: "no-store" });
         if (!response.ok) throw new Error("images.json niet gevonden");
 
-        const images = await response.json();
-        const validImages = Array.isArray(images)
-          ? images.filter(file => typeof file === "string" && file.trim())
+        const files = await response.json();
+        collageItems = Array.isArray(files)
+          ? files.filter(file => typeof file === "string" && file.trim())
           : [];
 
-        if (!validImages.length) {
-          track.innerHTML = "<div class='collage-loading'>Nog geen foto's gevonden in images/images.json</div>";
+        if (!collageItems.length) {
+          collageTrack.innerHTML = "<div class='collage-loading'>Nog geen foto's gevonden in images/images.json</div>";
           return;
         }
 
-        track.innerHTML = "";
-
-        validImages.forEach((file, index) => {
-          const button = document.createElement("button");
-          button.type = "button";
-          button.className = "collage-card";
-          button.setAttribute("aria-label", "Open foto " + (index + 1));
-
-          const img = document.createElement("img");
-          img.src = "images/" + file;
-          img.alt = "Zware Jongens foto " + (index + 1);
-          img.loading = index < 3 ? "eager" : "lazy";
-          img.decoding = "async";
-          img.draggable = false;
-
-          img.onerror = () => button.remove();
-          button.addEventListener("click", () => openLightbox(img.src, img.alt));
-
-          button.appendChild(img);
-          track.appendChild(button);
+        buildCollage();
+        setupCollageInteractions();
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            resetToMiddle();
+            startAutoScroll();
+          });
         });
       } catch (error) {
-        track.innerHTML = "<div class='collage-loading'>Collage werkt pas als je in de map images een images.json bestand met je fotonamen zet.</div>";
+        collageTrack.innerHTML = "<div class='collage-loading'>Collage werkt pas als je in de map images een images.json bestand met je fotonamen zet.</div>";
       }
+    }
+
+    function buildCollage() {
+      collageTrack.innerHTML = "";
+      const allFiles = [...collageItems, ...collageItems];
+
+      allFiles.forEach((file, index) => {
+        const card = document.createElement("div");
+        card.className = "collage-card";
+
+        const img = document.createElement("img");
+        img.src = "images/" + file;
+        img.alt = "Zware Jongens foto " + ((index % collageItems.length) + 1);
+        img.loading = index < 4 ? "eager" : "lazy";
+        img.decoding = "async";
+        img.draggable = false;
+
+        img.addEventListener("click", (event) => {
+          if (movedDuringDrag) {
+            event.preventDefault();
+            return;
+          }
+          openLightbox(img.src, img.alt);
+        });
+
+        img.addEventListener("dragstart", (event) => event.preventDefault());
+        img.onerror = () => card.remove();
+
+        card.appendChild(img);
+        collageTrack.appendChild(card);
+      });
+    }
+
+    function getHalfWidth() {
+      return collageTrack ? collageTrack.scrollWidth / 2 : 0;
+    }
+
+    function resetToMiddle() {
+      if (!collageTrack) return;
+      const half = getHalfWidth();
+      if (half > 0) {
+        collageTrack.scrollLeft = half;
+      }
+    }
+
+    function normalizeLoop() {
+      if (!collageTrack) return;
+      const half = getHalfWidth();
+      if (half <= 0) return;
+
+      if (collageTrack.scrollLeft >= half * 1.5) {
+        collageTrack.scrollLeft -= half;
+      } else if (collageTrack.scrollLeft <= half * 0.5) {
+        collageTrack.scrollLeft += half;
+      }
+    }
+
+    function startAutoScroll() {
+      cancelAnimationFrame(autoRaf);
+      lastTs = 0;
+
+      const step = (ts) => {
+        if (!collageTrack) return;
+        if (!lastTs) lastTs = ts;
+        const delta = Math.min(32, ts - lastTs);
+        lastTs = ts;
+
+        if (!autoPaused && !userInteracting) {
+          const pxPerSecond = window.innerWidth <= 640 ? 26 : window.innerWidth <= 1024 ? 34 : 42;
+          collageTrack.scrollLeft += (pxPerSecond * delta) / 1000;
+          normalizeLoop();
+        }
+
+        autoRaf = requestAnimationFrame(step);
+      };
+
+      autoRaf = requestAnimationFrame(step);
+    }
+
+    function pauseAutoTemporarily(ms = 1800) {
+      autoPaused = true;
+      clearTimeout(resumeTimer);
+      resumeTimer = setTimeout(() => {
+        autoPaused = false;
+      }, ms);
+    }
+
+    function setupCollageInteractions() {
+      if (!collageTrack || collageTrack.dataset.ready === "true") return;
+      collageTrack.dataset.ready = "true";
+
+      collageTrack.addEventListener("mouseenter", () => {
+        autoPaused = true;
+      });
+
+      collageTrack.addEventListener("mouseleave", () => {
+        if (!isDragging) autoPaused = false;
+      });
+
+      collageTrack.addEventListener("scroll", () => {
+        normalizeLoop();
+      }, { passive: true });
+
+      collageTrack.addEventListener("touchstart", () => {
+        userInteracting = true;
+        pauseAutoTemporarily(2200);
+      }, { passive: true });
+
+      collageTrack.addEventListener("touchend", () => {
+        userInteracting = false;
+        pauseAutoTemporarily(1400);
+      }, { passive: true });
+
+      collageTrack.addEventListener("mousedown", (event) => {
+        isDragging = true;
+        movedDuringDrag = false;
+        userInteracting = true;
+        autoPaused = true;
+        dragStartX = event.clientX;
+        dragStartScroll = collageTrack.scrollLeft;
+        collageTrack.classList.add("is-dragging");
+        event.preventDefault();
+      });
+
+      window.addEventListener("mousemove", (event) => {
+        if (!isDragging || !collageTrack) return;
+        const dx = event.clientX - dragStartX;
+        if (Math.abs(dx) > 4) movedDuringDrag = true;
+        collageTrack.scrollLeft = dragStartScroll - dx;
+        normalizeLoop();
+      });
+
+      window.addEventListener("mouseup", () => {
+        if (!isDragging || !collageTrack) return;
+        isDragging = false;
+        collageTrack.classList.remove("is-dragging");
+        userInteracting = false;
+        pauseAutoTemporarily(1200);
+        setTimeout(() => { movedDuringDrag = false; }, 50);
+      });
+
+      window.addEventListener("resize", () => {
+        pauseAutoTemporarily(500);
+        requestAnimationFrame(() => {
+          normalizeLoop();
+        });
+      });
+
+      window.addEventListener("orientationchange", () => {
+        setTimeout(() => {
+          normalizeLoop();
+          pauseAutoTemporarily(800);
+        }, 200);
+      });
+
+      document.addEventListener("visibilitychange", () => {
+        autoPaused = document.hidden;
+      });
     }
 
     function openLightbox(src, alt) {
@@ -190,6 +350,7 @@
       lightbox.classList.remove("hidden");
       lightbox.setAttribute("aria-hidden", "false");
       document.body.style.overflow = "hidden";
+      autoPaused = true;
     }
 
     function closeLightbox() {
@@ -200,6 +361,8 @@
       lightbox.setAttribute("aria-hidden", "true");
       lightboxImage.src = "";
       document.body.style.overflow = "";
+      autoPaused = false;
+      pauseAutoTemporarily(800);
     }
 
     window.addEventListener("DOMContentLoaded", () => {

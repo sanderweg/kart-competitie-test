@@ -128,55 +128,56 @@ button:hover,.btn:hover{transform:translateY(-1px)}button:disabled{opacity:.55;c
 }
 
 
-/* HOMEPAGE FOTO COLLAGE - eenvoudige stabiele swipe versie */
+/* HOMEPAGE FOTO COLLAGE */
 .photo-collage{
   width:100%;
   overflow:hidden;
   padding:0 0 18px;
+  position:relative;
 }
 .collage-track{
-  display:grid;
-  grid-auto-flow:column;
-  grid-auto-columns:minmax(240px, 82vw);
-  gap:12px;
+  display:flex;
+  gap:14px;
   overflow-x:auto;
   overflow-y:hidden;
   padding:4px 2px 10px;
-  scroll-snap-type:x mandatory;
   -webkit-overflow-scrolling:touch;
   scrollbar-width:none;
   overscroll-behavior-x:contain;
+  scroll-behavior:auto;
+  cursor:grab;
+  user-select:none;
 }
 .collage-track::-webkit-scrollbar{
   display:none;
 }
+.collage-track.is-dragging{
+  cursor:grabbing;
+}
 .collage-card{
-  appearance:none;
-  padding:0;
-  border:0;
-  background:transparent;
-  width:100%;
-  border-radius:12px;
-  scroll-snap-align:start;
-  cursor:pointer;
+  flex:0 0 auto;
+  width:clamp(240px, 78vw, 320px);
 }
 .collage-card img{
   display:block;
   width:100%;
   aspect-ratio:16/10;
   object-fit:cover;
-  border-radius:12px;
+  border-radius:14px;
   box-shadow:0 8px 20px rgba(0,0,0,.24);
+  border:none;
+  outline:none;
+  background:transparent;
+  -webkit-user-drag:none;
 }
 @media (min-width:768px){
-  .collage-track{
-    grid-auto-columns:minmax(260px, 42vw);
-    gap:14px;
+  .collage-card{
+    width:clamp(260px, 42vw, 300px);
   }
 }
 @media (min-width:1024px){
-  .collage-track{
-    grid-auto-columns:300px;
+  .collage-card{
+    width:300px;
   }
 }
 .collage-loading{
@@ -187,6 +188,8 @@ button:hover,.btn:hover{transform:translateY(-1px)}button:disabled{opacity:.55;c
   color:var(--muted);
   background:rgba(255,255,255,.03);
 }
+
+/* Lightbox */
 .lightbox{
   position:fixed;
   inset:0;
@@ -196,6 +199,9 @@ button:hover,.btn:hover{transform:translateY(-1px)}button:disabled{opacity:.55;c
   justify-content:center;
   padding:24px;
   z-index:9999;
+}
+.lightbox.hidden{
+  display:none;
 }
 .lightbox-image{
   max-width:min(92vw, 1400px);
@@ -217,10 +223,6 @@ button:hover,.btn:hover{transform:translateY(-1px)}button:disabled{opacity:.55;c
   background:rgba(255,255,255,.14);
   color:#fff;
   border:1px solid rgba(255,255,255,.18);
-}
-.lightbox-close:hover{
-  transform:none;
-  background:rgba(255,255,255,.22);
 }
 
 /* AGENDA */
