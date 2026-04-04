@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Kart Competitie</title>
+  <link rel="stylesheet" href="styles.css" />
+
+  <style>
+    /* Collage fix for phone/iPad - robust against initial portrait sizing */
+    .photo-collage {
+      width: 100%;
+      overflow: hidden;
+      margin: 0 0 20px 0;
+      position: relative;
+    }
+
+    .collage-track {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      width: max-content;
+      min-width: 100%;
+      will-change: transform;
+      transform: translate3d(0, 0, 0);
+      backface-visibility: hidden;
+      padding: 4px 0;
+      animation-name: collageScroll;
+      animation-timing-function: linear;
+      animation-iteration-count: infinite;
+      animation-duration: var(--collage-duration, 28s);
+    }
+
+    .collage-track.is-paused:hover,
+    .collage-track.is-paused:focus-within {
+      animation-play-state: paused;
+    }
+
+    .collage-track img {
+      flex: 0 0 auto;
+      width: min(78vw, 320px);
+      aspect-ratio: 16 / 10;
+      object-fit: cover;
+      border-radius: 14px;
+      display: block;
+      box-shadow: 0 10px 26px rgba(0, 0, 0, 0.22);
+      cursor: pointer;
+      user-select: none;
+      -webkit-user-drag: none;
+      background: rgba(255,255,255,0.06);
+      outline: none;
+    }
+
+    .collage-track img:focus-visible {
+      box-shadow: 0 0 0 3px rgba(255,255,255,0.75), 0 10px 26px rgba(0, 0, 0, 0.22);
+    }
+
+    .collage-loading {
+      min-width: 100%;
+      padding: 18px 14px;
+      text-align: center;
+      opacity: 0.9;
+    }
+
+    @media (min-width: 768px) {
+      .collage-track { gap: 12px; }
+      .collage-track img { width: min(42vw, 300px); }
+    }
+
+    @media (min-width: 1024px) {
+      .collage-track img { width: 320px; }
+    }
+
+    @media (max-width: 560px) {
+      .collage-track { gap: 8px; }
+      .collage-track img {
+        width: min(84vw, 290px);
+        border-radius: 12px;
+      }
+    }
+
+    @keyframes collageScroll {
+      from { transform: translate3d(0, 0, 0); }
+      to { transform: translate3d(calc(var(--scroll-distance, 0px) * -1), 0, 0); }
+    }
+
+    .lightbox {
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      background: rgba(0, 0, 0, 0.9);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 18px;
+    }
+
+    .lightbox.hidden { display: none; }
+
+    .lightbox-image {
+      max-width: min(96vw, 1400px);
+      max-height: 88vh;
+      border-radius: 14px;
+      box-shadow: 0 20px 50px rgba(0,0,0,0.45);
+    }
+
+    .lightbox-close {
+      position: absolute;
+      top: 14px;
+      right: 14px;
+      width: 44px;
+      height: 44px;
+      border: 0;
+      border-radius: 999px;
+      font-size: 30px;
+      line-height: 1;
+      cursor: pointer;
+      background: rgba(255,255,255,0.16);
+      color: white;
+    }
+  </style>
+
+</head>
+<body class="landing-body">
+  <div class="landing-bg"></div>
+  <div class="landing-shell">
+    
+    <section class="photo-collage">
+      <div class="collage-track" id="collageTrack"></div>
+    </section>
+
+    <section class="landing-hero">
+      <div class="landing-hero-left">
+        <p class="eyebrow">Zware Jongens Competitie</p>
+        <h1>🏁 Live races, seizoensstand en beheerdashboard</h1>
+        <p class="sub large-sub">
+          Volg alle sprintresultaten live, bekijk de seizoensstand en beheer de volledige competitie
+          vanuit één centrale omgeving.
+        </p>
+
+        <div class="landing-actions">
+          <a class="btn btn-primary" href="public.html">Bekijk tussenstand</a>
+          <a class="btn btn-secondary" href="inschrijven.html">Inschrijven voor race</a>
+          <a class="btn btn-secondary" href="login.html">Beheerder login</a>
+        </div>
+
+        <div class="landing-stats">
+          <div class="stat-card">
+            <span class="stat-label">Structuur</span>
+            <strong>2 sprint races</strong>
+            <span class="stat-sub">per race van 10 minuten</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-label">Scoring</span>
+            <strong>2 slechtste sprints vervallen</strong>
+            <span class="stat-sub">gemiste races tellen als 0 + 0</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-label">Toegang</span>
+            <strong>Beveiligd beheer</strong>
+            <span class="stat-sub">alleen voor admins</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="landing-hero-right">
+        
+        <div class="preview-card">
+          <div class="preview-top">
+            <span class="preview-pill">Algemeen reglement</span>
+            <span class="preview-dot"></span>
+          </div>
+
+          <h3>📜 Algemeen reglement</h3>
+
+          <div class="preview-list">
+            <div class="preview-item">
+              <div class="preview-icon">🏁</div>
+              <div>
+                <strong>Zware Jongens competitie</strong>
+                <p>
+                  Wij zijn een groep personen welke een zelfstandig kampioenschap organiseren
+                  voor de zwaardere rijder, van oudsher "de Zware Jongens".
+                </p>
+              </div>
+            </div>
+
+            <div class="preview-item">
+              <div class="preview-icon">⚖️</div>
+              <div>
+                <strong>Gewichtsregel</strong>
+                <p>
+                  100 kg. start gewicht is verplicht bij aanvang van de wedstrijd.
+                  Max 25 kg. straflood is toegestaan.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+
+    <section class="card full homepage-agenda-card">
+      <div class="section-row">
+        <h2>🗓️ Race agenda</h2>
+        <span class="preview-pill">Live vanuit beheer</span>
+      </div>
+      <p class="sub">Alle geplande races verschijnen hier automatisch zodra ze in het beheerpaneel worden toegevoegd.</p>
+      <div id="homepageAgendaList" class="agenda-public-list"></div>
+    </section>
+
+  </div>
+
+  <script type="module">
+    import { db, DB_PATH, ref, onValue, escapeHtml, formatDateTime } from "./firebase.js";
+
+    const homepageAgendaList = document.getElementById("homepageAgendaList");
+
+    function renderHomepageAgenda(items) {
+      if (!homepageAgendaList) return;
+      if (!items.length) {
+        homepageAgendaList.innerHTML = '<div class="empty">Er staan nog geen races in de agenda.</div>';
+        return;
+      }
+
+      homepageAgendaList.innerHTML = items.map(item => `
+        <article class="agenda-public-item">
+          <div>
+            <h3>${escapeHtml(item.name || item.title || "")}</h3>
+            <div class="race-meta">${escapeHtml(formatDateTime(item.date, item.time))}</div>
+            ${item.location ? `<div class="race-meta">${escapeHtml(item.location)}</div>` : ""}
+            ${item.note ? `<div class="race-meta">${escapeHtml(item.note)}</div>` : ""}
+          </div>
+        </article>
+      `).join("");
+    }
+
+    onValue(ref(db, DB_PATH), snapshot => {
+      const data = snapshot.val() || {};
+      const items = Object.values(data)
+        .filter(item => item && item.isDraft)
+        .sort((a, b) => {
+          const aKey = `${a.date || ""}T${a.time || "00:00"}`;
+          const bKey = `${b.date || ""}T${b.time || "00:00"}`;
+          return new Date(aKey) - new Date(bKey);
+        });
+      renderHomepageAgenda(items);
+    });
+  </script>
+
+
+  <script>
+    let collageFiles = [];
+    let collageBuildToken = 0;
+    let collageResizeTimer = null;
+
+    async function loadCollage() {
+      const track = document.getElementById("collageTrack");
+      if (!track) return;
+
+      track.innerHTML = "<div class='collage-loading'>Foto's laden...</div>";
+
+      try {
+        const response = await fetch("images/images.json", { cache: "no-store" });
+        if (!response.ok) throw new Error("images.json niet gevonden");
+
+        const images = await response.json();
+        collageFiles = Array.isArray(images)
+          ? images.filter(file => typeof file === "string" && file.trim())
+          : [];
+
+        if (!collageFiles.length) {
+          track.innerHTML = "<div class='collage-loading'>Nog geen foto's gevonden in images/images.json</div>";
+          return;
+        }
+
+        await buildResponsiveCollage();
+      } catch (error) {
+        track.innerHTML = "<div class='collage-loading'>Collage werkt pas als je in de map images een images.json bestand met je fotonamen zet.</div>";
+      }
+    }
+
+    function createCollageImage(file, index) {
+      const img = document.createElement("img");
+      img.src = "images/" + file;
+      img.alt = "Zware Jongens foto " + (index + 1);
+      img.loading = index < 6 ? "eager" : "lazy";
+      img.decoding = "async";
+      img.tabIndex = 0;
+
+      img.addEventListener("click", () => openLightbox(img.src, img.alt));
+      img.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          openLightbox(img.src, img.alt);
+        }
+      });
+
+      img.onerror = () => {
+        img.remove();
+      };
+
+      return img;
+    }
+
+    function waitForImages(container) {
+      const images = Array.from(container.querySelectorAll("img"));
+      if (!images.length) return Promise.resolve();
+
+      return Promise.all(images.map(img => new Promise(resolve => {
+        if (img.complete) return resolve();
+        img.addEventListener("load", resolve, { once: true });
+        img.addEventListener("error", resolve, { once: true });
+      })));
+    }
+
+    async function buildResponsiveCollage() {
+      const track = document.getElementById("collageTrack");
+      const section = document.querySelector(".photo-collage");
+      if (!track || !section || !collageFiles.length) return;
+
+      const token = ++collageBuildToken;
+      track.classList.remove("is-paused");
+      track.style.animation = "none";
+      track.innerHTML = "";
+
+      // Eerste set
+      collageFiles.forEach((file, index) => {
+        track.appendChild(createCollageImage(file, index));
+      });
+
+      await waitForImages(track);
+      if (token !== collageBuildToken) return;
+
+      // Bereken hoeveel breedte één set inneemt
+      const firstSetImages = Array.from(track.querySelectorAll("img"));
+      const visibleFirstSet = firstSetImages.filter(img => img.offsetWidth > 0);
+      if (!visibleFirstSet.length) {
+        track.innerHTML = "<div class='collage-loading'>Nog geen geldige foto's gevonden voor de collage.</div>";
+        return;
+      }
+
+      const setWidth = visibleFirstSet.reduce((sum, img) => sum + img.getBoundingClientRect().width, 0)
+        + Math.max(0, visibleFirstSet.length - 1) * parseFloat(getComputedStyle(track).gap || "0");
+
+      const viewportWidth = section.getBoundingClientRect().width || window.innerWidth || 1;
+
+      // Voeg genoeg kopieën toe zodat de band in portrait al direct lang genoeg is
+      const copiesNeeded = Math.max(2, Math.ceil((viewportWidth * 2.2) / Math.max(setWidth, 1)) + 1);
+
+      for (let copy = 1; copy < copiesNeeded; copy++) {
+        collageFiles.forEach((file, index) => {
+          track.appendChild(createCollageImage(file, index + copy * collageFiles.length));
+        });
+      }
+
+      await waitForImages(track);
+      if (token !== collageBuildToken) return;
+
+      track.style.setProperty("--scroll-distance", setWidth + "px");
+
+      // Constante snelheid per pixel zodat portrait/landscape allebei soepel zijn
+      const pixelsPerSecond = window.innerWidth <= 560 ? 38 : window.innerWidth <= 1024 ? 46 : 54;
+      const duration = Math.max(14, setWidth / pixelsPerSecond);
+      track.style.setProperty("--collage-duration", duration + "s");
+
+      // Forceer een echte restart, ook op iPhone/Safari na eerste render
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          if (token !== collageBuildToken) return;
+          track.style.animation = "";
+          void track.offsetWidth;
+          track.classList.add("is-paused");
+        });
+      });
+    }
+
+    function scheduleCollageRebuild() {
+      clearTimeout(collageResizeTimer);
+      collageResizeTimer = setTimeout(() => {
+        buildResponsiveCollage();
+      }, 180);
+    }
+
+    function openLightbox(src, alt) {
+      const lightbox = document.getElementById("lightbox");
+      const lightboxImage = document.getElementById("lightboxImage");
+      if (!lightbox || !lightboxImage) return;
+      lightboxImage.src = src;
+      lightboxImage.alt = alt || "Vergrote foto";
+      lightbox.classList.remove("hidden");
+      lightbox.setAttribute("aria-hidden", "false");
+      document.body.style.overflow = "hidden";
+    }
+
+    function closeLightbox() {
+      const lightbox = document.getElementById("lightbox");
+      const lightboxImage = document.getElementById("lightboxImage");
+      if (!lightbox || !lightboxImage) return;
+      lightbox.classList.add("hidden");
+      lightbox.setAttribute("aria-hidden", "true");
+      lightboxImage.src = "";
+      document.body.style.overflow = "";
+    }
+
+    window.addEventListener("DOMContentLoaded", () => {
+      loadCollage();
+
+      const lightbox = document.getElementById("lightbox");
+      const lightboxClose = document.getElementById("lightboxClose");
+
+      if (lightboxClose) {
+        lightboxClose.addEventListener("click", closeLightbox);
+      }
+
+      if (lightbox) {
+        lightbox.addEventListener("click", (event) => {
+          if (event.target === lightbox) closeLightbox();
+        });
+      }
+
+      document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") closeLightbox();
+      });
+
+      window.addEventListener("resize", scheduleCollageRebuild);
+      window.addEventListener("orientationchange", () => {
+        setTimeout(scheduleCollageRebuild, 120);
+        setTimeout(scheduleCollageRebuild, 420);
+      });
+
+      if (window.visualViewport) {
+        window.visualViewport.addEventListener("resize", scheduleCollageRebuild);
+      }
+
+      // Extra iPhone/Safari fix: nogmaals meten nadat fonts/layout volledig stabiel zijn
+      setTimeout(scheduleCollageRebuild, 300);
+      setTimeout(scheduleCollageRebuild, 900);
+    });
+  </script>
+
+
+
+  <div id="lightbox" class="lightbox hidden" aria-hidden="true">
+    <button id="lightboxClose" class="lightbox-close" type="button" aria-label="Sluiten">×</button>
+    <img id="lightboxImage" class="lightbox-image" alt="Vergrote foto" />
+  </div>
+</body>
+
+</html>
