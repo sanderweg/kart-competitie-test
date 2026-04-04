@@ -133,75 +133,43 @@ button:hover,.btn:hover{transform:translateY(-1px)}button:disabled{opacity:.55;c
   width:100%;
   overflow:hidden;
   padding:0 0 24px;
-}
-.photo-collage-viewport{
-  width:100%;
-  overflow:hidden;
   position:relative;
-  -webkit-mask-image: linear-gradient(to right, transparent 0, #000 4%, #000 96%, transparent 100%);
-  mask-image: linear-gradient(to right, transparent 0, #000 4%, #000 96%, transparent 100%);
 }
 .collage-track{
   display:flex;
   align-items:center;
-  gap:12px;
+  gap:10px;
   width:max-content;
+  min-width:100%;
   will-change:transform;
   transform:translate3d(0,0,0);
-  animation:scrollCollage 28s linear infinite;
-  padding-right:12px;
+  backface-visibility:hidden;
+  touch-action:pan-y;
 }
 .collage-track img{
-  display:block;
-  flex:0 0 auto;
-  width:clamp(220px, 28vw, 320px);
-  aspect-ratio:16 / 10;
+  width:clamp(220px, 78vw, 320px);
+  aspect-ratio:16/10;
+  height:auto;
   object-fit:cover;
   border-radius:12px;
+  flex:0 0 auto;
   box-shadow:0 8px 20px rgba(0,0,0,.24);
-  backface-visibility:hidden;
-  -webkit-user-drag:none;
-  user-select:none;
+  display:block;
+  background:rgba(255,255,255,.04);
 }
-@keyframes scrollCollage{
-  from{transform:translate3d(0,0,0)}
-  to{transform:translate3d(-50%,0,0)}
-}
-@media (max-width:1024px){
+@media (min-width:768px){
   .collage-track{
-    gap:10px;
-    animation-duration:24s;
-    padding-right:10px;
+    gap:12px;
   }
   .collage-track img{
-    width:clamp(220px, 38vw, 280px);
-    border-radius:11px;
+    width:clamp(240px, 42vw, 300px);
   }
 }
-@media (max-width:768px){
-  .photo-collage{
-    padding:0 0 18px;
-  }
-  .photo-collage-viewport{
-    -webkit-mask-image:none;
-    mask-image:none;
-  }
-  .collage-track{
-    gap:8px;
-    animation-duration:20s;
-    padding-right:8px;
-  }
+@media (min-width:1024px){
   .collage-track img{
-    width:min(78vw, 300px);
-    border-radius:10px;
+    width:300px;
   }
 }
-@media (max-width:480px){
-  .collage-track img{
-    width:min(84vw, 280px);
-  }
-}
-
 
 .collage-loading{
   min-width:320px;
@@ -211,7 +179,6 @@ button:hover,.btn:hover{transform:translateY(-1px)}button:disabled{opacity:.55;c
   color:var(--muted);
   background:rgba(255,255,255,.03);
 }
-
 
 .collage-track img{
   cursor:pointer;

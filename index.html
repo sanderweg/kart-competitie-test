@@ -135,47 +135,188 @@
   </script>
 
   <script>
-    async function loadCollage() {
-      const track = document.getElementById("collageTrack");
-      if (!track) return;
+    let collageFiles = [];
+    let collageTrack = null;
+    let collageRaf = 0;
+    let collageLastTime = 0;
+    let collageSpeed = 34; // px per second mobile default
+    let collageGap = 10;
+    let collagePaused = false;
+    let rebuildTimer = null;
 
-      track.innerHTML = "<div class='collage-loading'>Foto's laden...</div>";
+    async function loadCollage() {
+      collageTrack = document.getElementById("collageTrack");
+      if (!collageTrack) return;
+
+      collageTrack.innerHTML = "<div class='collage-loading'>Foto's laden...</div>";
 
       try {
-        const response = await fetch("images/images.json");
+        const response = await fetch("images/images.json", { cache: "no-store" });
         if (!response.ok) throw new Error("images.json niet gevonden");
 
         const images = await response.json();
-        const validImages = Array.isArray(images) ? images.filter(Boolean) : [];
+        collageFiles = Array.isArray(images)
+          ? images.filter(file => typeof file === "string" && file.trim())
+          : [];
 
-        if (!validImages.length) {
-          track.innerHTML = "<div class='collage-loading'>Nog geen foto's gevonden in images/images.json</div>";
+        if (!collageFiles.length) {
+          collageTrack.innerHTML = "<div class='collage-loading'>Nog geen foto's gevonden in images/images.json</div>";
           return;
         }
 
-        track.innerHTML = "";
-
-        [...validImages, ...validImages].forEach((file, index) => {
-          const img = document.createElement("img");
-          img.src = "images/" + file;
-          img.alt = "Zware Jongens foto " + (index + 1);
-          img.loading = "lazy";
-          img.tabIndex = 0;
-          img.addEventListener("click", () => openLightbox("images/" + file, img.alt));
-          img.addEventListener("keydown", (event) => {
-            if (event.key === "Enter" || event.key === " ") {
-              event.preventDefault();
-              openLightbox("images/" + file, img.alt);
-            }
-          });
-          img.onerror = () => {
-            img.style.display = "none";
-          };
-          track.appendChild(img);
-        });
+        await buildCollageTrack();
       } catch (error) {
-        track.innerHTML = "<div class='collage-loading'>Collage werkt pas als je in de map images een images.json bestand met je fotonamen zet.</div>";
+        collageTrack.innerHTML = "<div class='collage-loading'>Collage werkt pas als je in de map images een images.json bestand met je fotonamen zet.</div>";
       }
+    }
+
+    function createCollageImage(file, index) {
+      const img = document.createElement("img");
+      img.src = "images/" + file;
+      img.alt = "Zware Jongens foto " + (index + 1);
+      img.loading = index < 4 ? "eager" : "lazy";
+      img.decoding = "async";
+      img.tabIndex = 0;
+
+      img.addEventListener("click", () => openLightbox(img.src, img.alt));
+      img.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          openLightbox(img.src, img.alt);
+        }
+      });
+
+      img.addEventListener("error", () => {
+        img.remove();
+      });
+
+      return img;
+    }
+
+    function waitForImages(images) {
+      return Promise.all(images.map(img => new Promise(resolve => {
+        if (img.complete && img.naturalWidth > 0) return resolve();
+        const done = () => resolve();
+        img.addEventListener("load", done, { once: true });
+        img.addEventListener("error", done, { once: true });
+      })));
+    }
+
+    function getViewportWidth() {
+      const collage = document.querySelector(".photo-collage");
+      return collage ? Math.max(collage.clientWidth, window.innerWidth || 0) : (window.innerWidth || 0);
+    }
+
+    function updateCollageMetrics() {
+      collageGap = parseFloat(getComputedStyle(collageTrack).gap || "10") || 10;
+      const width = window.innerWidth || 0;
+      collageSpeed = width <= 480 ? 28 : width <= 768 ? 32 : width <= 1024 ? 38 : 46;
+    }
+
+    async function buildCollageTrack() {
+      if (!collageTrack || !collageFiles.length) return;
+
+      cancelAnimationFrame(collageRaf);
+      collageRaf = 0;
+      collageLastTime = 0;
+      collageTrack.style.transform = "translate3d(0,0,0)";
+      collageTrack.innerHTML = "";
+
+      const viewportWidth = Math.max(getViewportWidth(), 1);
+      let created = [];
+      let loops = 0;
+
+      // voeg genoeg foto's toe zodat de band direct lang genoeg is in portrait
+      while (loops < 8 && collageTrack.scrollWidth < viewportWidth * 2.4) {
+        const startIndex = created.length;
+        const batch = collageFiles.map((file, i) => createCollageImage(file, startIndex + i));
+        batch.forEach(img => collageTrack.appendChild(img));
+        created = created.concat(batch);
+        await waitForImages(batch);
+        loops += 1;
+      }
+
+      // extra set voor zekerheid tegen lege ruimte tijdens doorlopen
+      const extraBatch = collageFiles.map((file, i) => createCollageImage(file, created.length + i));
+      extraBatch.forEach(img => collageTrack.appendChild(img));
+      await waitForImages(extraBatch);
+
+      // Verwijder kapotte afbeeldingen
+      Array.from(collageTrack.querySelectorAll("img")).forEach(img => {
+        if (!img.naturalWidth) img.remove();
+      });
+
+      if (!collageTrack.querySelector("img")) {
+        collageTrack.innerHTML = "<div class='collage-loading'>Nog geen geldige foto's gevonden voor de collage.</div>";
+        return;
+      }
+
+      updateCollageMetrics();
+      startCollageLoop();
+    }
+
+    function moveFirstImageToEnd() {
+      if (!collageTrack) return;
+      const first = collageTrack.querySelector("img");
+      if (!first) return;
+      const firstWidth = first.getBoundingClientRect().width + collageGap;
+      collageTrack.appendChild(first);
+      const currentX = parseFloat(collageTrack.dataset.x || "0") - firstWidth;
+      collageTrack.dataset.x = String(currentX);
+      collageTrack.style.transform = `translate3d(${currentX}px, 0, 0)`;
+    }
+
+    function normalizeTrackPosition() {
+      if (!collageTrack) return;
+      let first = collageTrack.querySelector("img");
+      let currentX = parseFloat(collageTrack.dataset.x || "0");
+      while (first) {
+        const firstWidth = first.getBoundingClientRect().width + collageGap;
+        if (-currentX >= firstWidth) {
+          currentX += firstWidth;
+          collageTrack.appendChild(first);
+          first = collageTrack.querySelector("img");
+        } else {
+          break;
+        }
+      }
+      collageTrack.dataset.x = String(currentX);
+      collageTrack.style.transform = `translate3d(${currentX}px, 0, 0)`;
+    }
+
+    function startCollageLoop() {
+      if (!collageTrack) return;
+      collagePaused = false;
+      collageTrack.dataset.x = "0";
+      collageTrack.style.transform = "translate3d(0,0,0)";
+      cancelAnimationFrame(collageRaf);
+      collageLastTime = 0;
+
+      const frame = (time) => {
+        if (!collageTrack) return;
+        if (!collageLastTime) collageLastTime = time;
+        const delta = Math.min(32, time - collageLastTime);
+        collageLastTime = time;
+
+        if (!collagePaused) {
+          let currentX = parseFloat(collageTrack.dataset.x || "0");
+          currentX -= (collageSpeed * delta) / 1000;
+          collageTrack.dataset.x = String(currentX);
+          collageTrack.style.transform = `translate3d(${currentX}px, 0, 0)`;
+          normalizeTrackPosition();
+        }
+
+        collageRaf = requestAnimationFrame(frame);
+      };
+
+      collageRaf = requestAnimationFrame(frame);
+    }
+
+    function scheduleCollageRebuild() {
+      clearTimeout(rebuildTimer);
+      rebuildTimer = setTimeout(() => {
+        buildCollageTrack();
+      }, 180);
     }
 
     function openLightbox(src, alt) {
@@ -187,6 +328,7 @@
       lightbox.classList.remove("hidden");
       lightbox.setAttribute("aria-hidden", "false");
       document.body.style.overflow = "hidden";
+      collagePaused = true;
     }
 
     function closeLightbox() {
@@ -197,6 +339,7 @@
       lightbox.setAttribute("aria-hidden", "true");
       lightboxImage.src = "";
       document.body.style.overflow = "";
+      collagePaused = false;
     }
 
     window.addEventListener("DOMContentLoaded", () => {
@@ -218,6 +361,24 @@
       document.addEventListener("keydown", (event) => {
         if (event.key === "Escape") closeLightbox();
       });
+
+      document.addEventListener("visibilitychange", () => {
+        collagePaused = document.hidden;
+      });
+
+      window.addEventListener("resize", scheduleCollageRebuild);
+      window.addEventListener("orientationchange", () => {
+        setTimeout(scheduleCollageRebuild, 100);
+        setTimeout(scheduleCollageRebuild, 500);
+      });
+
+      if (window.visualViewport) {
+        window.visualViewport.addEventListener("resize", scheduleCollageRebuild);
+      }
+
+      // extra rebuilds voor iPhone/Safari na eerste layout
+      setTimeout(scheduleCollageRebuild, 350);
+      setTimeout(scheduleCollageRebuild, 1200);
     });
   </script>
 
