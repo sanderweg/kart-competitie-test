@@ -134,12 +134,12 @@
     });
   </script>
 
-<script>
+  <script>
     async function loadCollage() {
       const track = document.getElementById("collageTrack");
       if (!track) return;
 
-      track.innerHTML = "<div class='collage-loading'>Foto\'s laden...</div>";
+      track.innerHTML = "<div class='collage-loading'>Foto's laden...</div>";
 
       try {
         const response = await fetch("images/images.json", { cache: "no-store" });
@@ -158,77 +158,27 @@
         track.innerHTML = "";
 
         validImages.forEach((file, index) => {
-          const card = document.createElement("button");
-          card.type = "button";
-          card.className = "collage-card";
+          const button = document.createElement("button");
+          button.type = "button";
+          button.className = "collage-card";
+          button.setAttribute("aria-label", "Open foto " + (index + 1));
 
           const img = document.createElement("img");
           img.src = "images/" + file;
           img.alt = "Zware Jongens foto " + (index + 1);
-          img.loading = index < 4 ? "eager" : "lazy";
+          img.loading = index < 3 ? "eager" : "lazy";
           img.decoding = "async";
           img.draggable = false;
 
-          img.onerror = () => card.remove();
-          card.addEventListener("click", () => openLightbox(img.src, img.alt));
+          img.onerror = () => button.remove();
+          button.addEventListener("click", () => openLightbox(img.src, img.alt));
 
-          card.appendChild(img);
-          track.appendChild(card);
+          button.appendChild(img);
+          track.appendChild(button);
         });
-
-        enablePointerDrag(track);
       } catch (error) {
         track.innerHTML = "<div class='collage-loading'>Collage werkt pas als je in de map images een images.json bestand met je fotonamen zet.</div>";
       }
-    }
-
-    function enablePointerDrag(track) {
-      if (!track || track.dataset.dragReady === "true") return;
-      track.dataset.dragReady = "true";
-
-      let isDown = false;
-      let moved = false;
-      let startX = 0;
-      let startScroll = 0;
-
-      const onPointerDown = (event) => {
-        if (event.pointerType === "mouse" && event.button !== 0) return;
-        isDown = true;
-        moved = false;
-        startX = event.clientX;
-        startScroll = track.scrollLeft;
-        track.classList.add("is-dragging");
-        try { track.setPointerCapture(event.pointerId); } catch {}
-      };
-
-      const onPointerMove = (event) => {
-        if (!isDown) return;
-        const dx = event.clientX - startX;
-        if (Math.abs(dx) > 5) moved = true;
-        track.scrollLeft = startScroll - dx;
-        if (moved) event.preventDefault();
-      };
-
-      const onPointerUp = (event) => {
-        if (!isDown) return;
-        isDown = false;
-        track.classList.remove("is-dragging");
-        try { track.releasePointerCapture(event.pointerId); } catch {}
-      };
-
-      track.addEventListener("pointerdown", onPointerDown);
-      track.addEventListener("pointermove", onPointerMove);
-      track.addEventListener("pointerup", onPointerUp);
-      track.addEventListener("pointercancel", onPointerUp);
-      track.addEventListener("lostpointercapture", onPointerUp);
-
-      track.addEventListener("click", (event) => {
-        if (moved) {
-          event.preventDefault();
-          event.stopPropagation();
-          moved = false;
-        }
-      }, true);
     }
 
     function openLightbox(src, alt) {
