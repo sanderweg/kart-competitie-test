@@ -4,6 +4,7 @@ import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/
 const functions = getFunctions(auth.app, "europe-west1");
 const verstuurRoosterMailFn = httpsCallable(functions, "verstuurRoosterMail");
 const uitschrijvenFn = httpsCallable(functions, "uitschrijvenDeelnemer");
+const driverUitschrijvenFn = httpsCallable(functions, "driverUitschrijven");
 
 const raceNameInput = document.getElementById("raceName");
 const raceDateInput = document.getElementById("raceDate");
@@ -532,9 +533,17 @@ function renderHistory() {
 
   historyList.innerHTML = races.map(race => {
     const sprint1Items = (race.sprint1Drivers || []).slice().sort((a, b) => Number(a.position) - Number(b.position))
-      .map(driver => `<li>P${driver.position || "-"} · ${escapeHtml(driver.name)} · ${driver.points || 0} punten</li>`).join("");
+      .map(driver => `
+        <li style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:6px;">
+          <span>P${driver.position || "-"} · ${escapeHtml(driver.name)} · ${driver.points || 0} punten</span>
+          ${race.isDraft && currentUser ? `<button type="button" class="danger driver-uitschrijven-btn" style="padding:4px 10px;font-size:12px;" data-race-id="${race.id}" data-name="${escapeHtml(driver.name)}" data-sprint="1">Uitschrijven</button>` : ''}
+        </li>`).join("");
     const sprint2Items = (race.sprint2Drivers || []).slice().sort((a, b) => Number(a.position) - Number(b.position))
-      .map(driver => `<li>P${driver.position || "-"} · ${escapeHtml(driver.name)} · ${driver.points || 0} punten</li>`).join("");
+      .map(driver => `
+        <li style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:6px;">
+          <span>P${driver.position || "-"} · ${escapeHtml(driver.name)} · ${driver.points || 0} punten</span>
+          ${race.isDraft && currentUser ? `<button type="button" class="danger driver-uitschrijven-btn" style="padding:4px 10px;font-size:12px;" data-race-id="${race.id}" data-name="${escapeHtml(driver.name)}" data-sprint="2">Uitschrijven</button>` : ''}
+        </li>`).join("");
 
         const actions = currentUser ? `
 
@@ -565,6 +574,31 @@ function renderHistory() {
     btn.addEventListener("click", () => {
       const race = races.find(r => r.id === btn.dataset.id);
       if (race) loadRaceIntoForm(race);
+    });
+  });
+
+  document.querySelectorAll(".driver-uitschrijven-btn").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      if (!currentUser) return;
+      const raceId   = btn.dataset.raceId;
+      const naam     = btn.dataset.name;
+      const sprint   = btn.dataset.sprint;
+      const race     = races.find(r => r.id === raceId);
+      if (!race) return;
+      if (!confirm(`Weet je zeker dat je ${naam} wilt uitschrijven uit ${race.name}? Er wordt een mail gestuurd als er een e-mailadres bekend is.`)) return;
+
+      btn.disabled = true;
+      btn.textContent = "Bezig…";
+
+      try {
+        await driverUitschrijvenFn({ raceId, naam, sprint: Number(sprint) });
+        setMessage(`${naam} is uitgeschreven uit ${race.name}.`, "success");
+      } catch (error) {
+        console.error(error);
+        setMessage(`Uitschrijven mislukt: ${error?.message || "Onbekende fout"}`, "error");
+        btn.disabled = false;
+        btn.textContent = "Uitschrijven";
+      }
     });
   });
 
