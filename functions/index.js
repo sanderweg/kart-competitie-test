@@ -437,3 +437,163 @@ exports.onRegistrationArchived = onValueCreated(
     }
   }
 );
+
+
+// ─── Rooster mail: handmatig versturen via admin ───────────────────────────
+
+const { onCall, HttpsError } = require('firebase-functions/v2/https');
+
+exports.verstuurRoosterMail = onCall(
+  { region: REGION },
+  async (request) => {
+    // Alleen ingelogde admins mogen dit aanroepen
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', 'Je moet ingelogd zijn als beheerder.');
+    }
+
+    const raceId = request.data?.raceId;
+    if (!raceId) {
+      throw new HttpsError('invalid-argument', 'Geen raceId meegegeven.');
+    }
+
+    const db = admin.database();
+
+    // Race ophalen
+    const raceSnap = await db.ref(`/kartCompetitie/races/${raceId}`).get();
+    const race = raceSnap.val();
+    if (!race) {
+      throw new HttpsError('not-found', 'Race niet gevonden.');
+    }
+
+    // Datum en tijd netjes opmaken
+    function formatDatumTijd(dateString, timeString) {
+      if (!dateString) return 'Nog niet bekend';
+      const date = new Date(`${dateString}T${timeString || '00:00'}:00`);
+      const dag = date.toLocaleDateString('nl-NL', {
+        weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+      });
+      return timeString ? `${dag} om ${timeString}` : dag;
+    }
+
+    const raceName   = safeText(race.name)     || 'Race';
+    const datumTijd  = formatDatumTijd(race.date, race.time);
+    const locatie    = safeText(race.location) || 'Nog niet bekendgemaakt';
+    const noot       = safeText(race.note)     || '';
+
+    // Alle inschrijvingen voor deze race ophalen (status nieuw of goedgekeurd)
+    const regSnap = await db.ref('/kartCompetitie/inschrijvingen').get();
+    const alleInschrijvingen = Object.values(regSnap.val() || {});
+    const deelnemers = alleInschrijvingen.filter(r =>
+      r && r.raceId === raceId &&
+      ['nieuw', 'goedgekeurd'].includes(String(r.status || '').toLowerCase())
+    );
+
+    if (!deelnemers.length) {
+      throw new HttpsError('failed-precondition', 'Er zijn geen ingeschreven deelnemers voor deze race.');
+    }
+
+    // Mail template
+    function roosterMailTemplate({ naam, raceName, datumTijd, locatie, noot }) {
+      const nootRegel = noot
+        ? `<div style="margin:16px 0;padding:14px;background:#fefce8;border:1px solid #fde68a;border-radius:10px;font-size:15px;color:#92400e;">${noot}</div>`
+        : '';
+
+      const html = `
+        <p style="margin:0 0 16px 0;font-size:16px;line-height:1.7;">Hallo ${naam},</p>
+
+        <p style="margin:0 0 16px 0;font-size:16px;line-height:1.7;">
+          Hieronder vind je de details van de aankomende race waarvoor je bent ingeschreven.
+        </p>
+
+        <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:12px;padding:20px;margin:16px 0;">
+          <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+            <tr>
+              <td style="padding:0 0 14px 0;">
+                <div style="font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:#6b7280;margin-bottom:4px;">Race</div>
+                <div style="font-size:18px;font-weight:bold;color:#111827;">${raceName}</div>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:0 0 14px 0;border-top:1px solid #e5e7eb;padding-top:14px;">
+                <div style="font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:#6b7280;margin-bottom:4px;">📅 Datum &amp; tijd</div>
+                <div style="font-size:16px;color:#111827;">${datumTijd}</div>
+              </td>
+            </tr>
+            <tr>
+              <td style="border-top:1px solid #e5e7eb;padding-top:14px;">
+                <div style="font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:#6b7280;margin-bottom:4px;">📍 Locatie</div>
+                <div style="font-size:16px;color:#111827;">${locatie}</div>
+              </td>
+            </tr>
+          </table>
+        </div>
+
+        ${nootRegel}
+
+        <p style="margin:0 0 16px 0;font-size:16px;line-height:1.7;">
+          Heb je vragen? Reageer gerust op deze e-mail.
+        </p>
+
+        <p style="margin:0;font-size:16px;line-height:1.7;">
+          Met sportieve groet,<br />
+          <strong>Zware Jongens Competitie</strong>
+        </p>
+      `;
+
+      const text = `Hallo ${naam},
+
+Hieronder vind je de details van de aankomende race waarvoor je bent ingeschreven.
+
+Race:    ${raceName}
+Datum:   ${datumTijd}
+Locatie: ${locatie}
+${noot ? `\nOpmerking: ${noot}\n` : ''}
+Heb je vragen? Reageer gerust op deze e-mail.
+
+Met sportieve groet,
+Zware Jongens Competitie`;
+
+      return {
+        subject: `Racedetails: ${raceName}`,
+        html: baseEmailLayout({
+          title: `📅 ${raceName}`,
+          preheader: `Racedetails voor ${raceName} op ${datumTijd}.`,
+          bodyHtml: html,
+        }),
+        text,
+      };
+    }
+
+    // Verstuur naar elke deelnemer
+    const resultaten = [];
+    for (const deelnemer of deelnemers) {
+      const to = safeText(deelnemer.email);
+      if (!to) {
+        resultaten.push({ naam: deelnemer.naam, ok: false, reden: 'Geen e-mailadres' });
+        continue;
+      }
+      try {
+        const mail = roosterMailTemplate({
+          naam: safeText(deelnemer.naam) || 'deelnemer',
+          raceName,
+          datumTijd,
+          locatie,
+          noot,
+        });
+        await sendEmail({ to, subject: mail.subject, html: mail.html, text: mail.text });
+        resultaten.push({ naam: deelnemer.naam, ok: true });
+        logger.info(`Rooster mail verzonden naar ${to}`);
+      } catch (err) {
+        logger.error(`Rooster mail mislukt voor ${to}`, err);
+        resultaten.push({ naam: deelnemer.naam, ok: false, reden: err.message });
+      }
+    }
+
+    const aantalOk = resultaten.filter(r => r.ok).length;
+    return {
+      verzonden: aantalOk,
+      totaal: deelnemers.length,
+      resultaten,
+    };
+  }
+);
