@@ -1,4 +1,8 @@
 import { auth, db, DB_PATH, REGISTRATIONS_PATH, REGISTRATIONS_HISTORY_PATH, ref, push, set, remove, onValue, signOut, onAuthStateChanged, getPoints, formatDate, formatDateTime, escapeHtml, mergeResults, buildSeasonRows } from "./firebase.js";
+import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-functions.js";
+
+const functions = getFunctions(auth.app, "europe-west1");
+const verstuurRoosterMailFn = httpsCallable(functions, "verstuurRoosterMail");
 
 const raceNameInput = document.getElementById("raceName");
 const raceDateInput = document.getElementById("raceDate");
@@ -535,6 +539,7 @@ function renderHistory() {
 
       <div class="race-actions">
         <button type="button" class="secondary edit-race-btn" data-id="${race.id}">Uitslag bewerken</button>
+        <button type="button" class="secondary rooster-mail-btn" data-id="${race.id}">📧 Verstuur rooster</button>
         <button type="button" class="danger delete-race-btn" data-id="${race.id}">Race verwijderen</button>
       </div>` : "";
 
@@ -573,6 +578,33 @@ function renderHistory() {
       } catch (error) {
         console.error(error);
         setMessage("Verwijderen mislukt.", "error");
+      }
+    });
+  });
+
+  document.querySelectorAll(".rooster-mail-btn").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      if (!currentUser) return;
+      const raceId = btn.dataset.id;
+      const race = races.find(r => r.id === raceId);
+      const raceName = race?.name || "deze race";
+      if (!confirm(`Weet je zeker dat je het rooster wilt mailen naar alle ingeschreven deelnemers van "${raceName}"?`)) return;
+
+      btn.disabled = true;
+      btn.textContent = "📧 Bezig…";
+      setMessage("Mails worden verstuurd…", "");
+
+      try {
+        const result = await verstuurRoosterMailFn({ raceId });
+        const { verzonden, totaal } = result.data;
+        setMessage(`✅ Rooster verstuurd: ${verzonden} van ${totaal} mails succesvol verzonden.`, "success");
+      } catch (error) {
+        console.error(error);
+        const melding = error?.message || "Onbekende fout";
+        setMessage(`❌ Versturen mislukt: ${melding}`, "error");
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "📧 Verstuur rooster";
       }
     });
   });
