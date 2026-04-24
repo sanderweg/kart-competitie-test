@@ -11,7 +11,9 @@
   <div class="landing-shell">
     
     <section class="photo-collage">
-      <div class="collage-track" id="collageTrack"></div>
+      <div class="collage-viewport">
+        <div class="collage-track" id="collageTrack"></div>
+      </div>
     </section>
 
     <section class="landing-hero">
@@ -135,196 +137,197 @@
   </script>
 
   <script>
-    let collageItems = [];
-    let collageTrack = null;
-    let autoRaf = 0;
-    let lastTs = 0;
+    const CARD_WIDTH = 314; // 300px kaart + 14px gap
+    const SPEED_PX_PER_SEC = 42;
+
+    let track = null;
+    let items = [];
+    let animOffset = 0;      // huidige CSS translate offset (px)
+    let rafId = 0;
+    let lastTs = null;
     let isDragging = false;
     let dragStartX = 0;
-    let dragStartScroll = 0;
+    let dragOffsetAtStart = 0;
     let movedDuringDrag = false;
+    let totalWidth = 0;      // breedte van één set foto's (px)
 
     async function loadCollage() {
-      collageTrack = document.getElementById("collageTrack");
-      if (!collageTrack) return;
+      track = document.getElementById("collageTrack");
+      if (!track) return;
 
-      collageTrack.innerHTML = "<div class='collage-loading'>Foto's laden...</div>";
+      track.innerHTML = "<div class='collage-loading'>Foto's laden...</div>";
 
       try {
-        const response = await fetch("images/images.json", { cache: "no-store" });
-        if (!response.ok) throw new Error("images.json niet gevonden");
+        const res = await fetch("images/images.json", { cache: "no-store" });
+        if (!res.ok) throw new Error();
+        const files = await res.json();
+        items = Array.isArray(files) ? files.filter(f => typeof f === "string" && f.trim()) : [];
 
-        const files = await response.json();
-        collageItems = Array.isArray(files)
-          ? files.filter(file => typeof file === "string" && file.trim())
-          : [];
-
-        if (!collageItems.length) {
-          collageTrack.innerHTML = "<div class='collage-loading'>Nog geen foto's gevonden in images/images.json</div>";
+        if (!items.length) {
+          track.innerHTML = "<div class='collage-loading'>Geen foto's gevonden in images/images.json</div>";
           return;
         }
 
-        buildCollage();
-        setupCollageInteractions();
-        requestAnimationFrame(() => {
-          requestAnimationFrame(() => {
-            resetToMiddle();
-            startAutoScroll();
-          });
-        });
-      } catch (error) {
-        collageTrack.innerHTML = "<div class='collage-loading'>Collage werkt pas als je in de map images een images.json bestand met je fotonamen zet.</div>";
+        buildTrack();
+        setupDrag();
+        startLoop();
+      } catch {
+        track.innerHTML = "<div class='collage-loading'>Collage werkt pas als je in de map images een images.json bestand met je fotonamen zet.</div>";
       }
     }
 
-    function buildCollage() {
-      collageTrack.innerHTML = "";
-      const allFiles = [...collageItems, ...collageItems];
-
-      allFiles.forEach((file, index) => {
+    function buildTrack() {
+      track.innerHTML = "";
+      // Drie sets voor naadloze loop
+      const sets = [...items, ...items, ...items];
+      sets.forEach((file, i) => {
         const card = document.createElement("div");
         card.className = "collage-card";
 
         const img = document.createElement("img");
         img.src = "images/" + file;
-        img.alt = "Zware Jongens foto " + ((index % collageItems.length) + 1);
-        img.loading = index < 4 ? "eager" : "lazy";
+        img.alt = "Zware Jongens foto " + ((i % items.length) + 1);
+        img.loading = i < 6 ? "eager" : "lazy";
         img.decoding = "async";
         img.draggable = false;
 
         img.addEventListener("click", () => {
           if (!movedDuringDrag) openLightbox(img.src, img.alt);
         });
-        img.addEventListener("dragstart", (e) => e.preventDefault());
-        img.onerror = () => card.remove();
+        img.addEventListener("dragstart", e => e.preventDefault());
+        img.onerror = () => card.style.display = "none";
 
         card.appendChild(img);
-        collageTrack.appendChild(card);
+        track.appendChild(card);
       });
+
+      totalWidth = items.length * CARD_WIDTH;
+      // Start in het midden (set 2), zodat we beide kanten op kunnen lopen
+      animOffset = -totalWidth;
+      applyTransform();
     }
 
-    function getHalfWidth() {
-      return collageTrack ? collageTrack.scrollWidth / 2 : 0;
+    function applyTransform() {
+      track.style.transform = `translateX(${animOffset}px)`;
     }
 
-    function resetToMiddle() {
-      if (!collageTrack) return;
-      const half = getHalfWidth();
-      if (half > 0) collageTrack.scrollLeft = half;
+    function wrapOffset() {
+      // Blijf altijd in set 2 (midden): tussen -2*totalWidth en -totalWidth
+      if (animOffset <= -2 * totalWidth) animOffset += totalWidth;
+      if (animOffset > -totalWidth) animOffset -= totalWidth;
     }
 
-    function normalizeLoop() {
-      if (!collageTrack) return;
-      const half = getHalfWidth();
-      if (half <= 0) return;
-      if (collageTrack.scrollLeft >= half * 1.5) collageTrack.scrollLeft -= half;
-      else if (collageTrack.scrollLeft <= half * 0.5) collageTrack.scrollLeft += half;
-    }
-
-    function startAutoScroll() {
-      cancelAnimationFrame(autoRaf);
-      lastTs = 0;
+    function startLoop() {
+      cancelAnimationFrame(rafId);
+      lastTs = null;
       const step = (ts) => {
-        if (!collageTrack) return;
-        if (!lastTs) lastTs = ts;
-        const delta = Math.min(32, ts - lastTs);
+        if (lastTs === null) lastTs = ts;
+        const dt = Math.min(ts - lastTs, 50); // max 50ms stap (tab-switch bescherming)
         lastTs = ts;
 
-        // Alleen pauzeren tijdens actief slepen
         if (!isDragging) {
-          const pxPerSecond = window.innerWidth <= 640 ? 26 : window.innerWidth <= 1024 ? 34 : 42;
-          collageTrack.scrollLeft += (pxPerSecond * delta) / 1000;
-          normalizeLoop();
+          animOffset -= (SPEED_PX_PER_SEC * dt) / 1000;
+          wrapOffset();
+          applyTransform();
         }
 
-        autoRaf = requestAnimationFrame(step);
+        rafId = requestAnimationFrame(step);
       };
-      autoRaf = requestAnimationFrame(step);
+      rafId = requestAnimationFrame(step);
     }
 
-    function setupCollageInteractions() {
-      if (!collageTrack || collageTrack.dataset.ready === "true") return;
-      collageTrack.dataset.ready = "true";
+    function setupDrag() {
+      const viewport = track.parentElement;
 
-      collageTrack.addEventListener("scroll", normalizeLoop, { passive: true });
-
-      // Touch: loop gewoon door, normalizeLoop zorgt voor wrapping
-      collageTrack.addEventListener("touchstart", () => {
-        isDragging = true;
-      }, { passive: true });
-      collageTrack.addEventListener("touchend", () => {
-        isDragging = false;
-      }, { passive: true });
-
-      // Muis slepen
-      collageTrack.addEventListener("mousedown", (e) => {
+      // — Muis —
+      viewport.addEventListener("mousedown", e => {
         isDragging = true;
         movedDuringDrag = false;
         dragStartX = e.clientX;
-        dragStartScroll = collageTrack.scrollLeft;
-        collageTrack.classList.add("is-dragging");
+        dragOffsetAtStart = animOffset;
+        track.style.transition = "none";
+        viewport.classList.add("is-dragging");
         e.preventDefault();
       });
 
-      window.addEventListener("mousemove", (e) => {
-        if (!isDragging || !collageTrack) return;
+      window.addEventListener("mousemove", e => {
+        if (!isDragging) return;
         const dx = e.clientX - dragStartX;
         if (Math.abs(dx) > 4) movedDuringDrag = true;
-        collageTrack.scrollLeft = dragStartScroll - dx;
-        normalizeLoop();
+        animOffset = dragOffsetAtStart + dx;
+        wrapOffset();
+        applyTransform();
+        // reset lastTs zodat na loslaten geen sprong
+        lastTs = null;
       });
 
       window.addEventListener("mouseup", () => {
         if (!isDragging) return;
         isDragging = false;
-        collageTrack.classList.remove("is-dragging");
+        viewport.classList.remove("is-dragging");
         setTimeout(() => { movedDuringDrag = false; }, 50);
       });
 
-      window.addEventListener("resize", () => requestAnimationFrame(normalizeLoop));
+      // — Touch —
+      viewport.addEventListener("touchstart", e => {
+        isDragging = true;
+        movedDuringDrag = false;
+        dragStartX = e.touches[0].clientX;
+        dragOffsetAtStart = animOffset;
+        track.style.transition = "none";
+        lastTs = null;
+      }, { passive: true });
 
+      viewport.addEventListener("touchmove", e => {
+        if (!isDragging) return;
+        const dx = e.touches[0].clientX - dragStartX;
+        if (Math.abs(dx) > 4) movedDuringDrag = true;
+        animOffset = dragOffsetAtStart + dx;
+        wrapOffset();
+        applyTransform();
+        lastTs = null;
+      }, { passive: true });
+
+      viewport.addEventListener("touchend", () => {
+        isDragging = false;
+        setTimeout(() => { movedDuringDrag = false; }, 50);
+      }, { passive: true });
+
+      // Tab op achtergrond: reset timer
       document.addEventListener("visibilitychange", () => {
-        // Tab op achtergrond: reset lastTs zodat er geen grote sprong is bij terugkeren
-        if (document.hidden) lastTs = 0;
+        lastTs = null;
       });
     }
 
     function openLightbox(src, alt) {
-      const lightbox = document.getElementById("lightbox");
-      const lightboxImage = document.getElementById("lightboxImage");
-      if (!lightbox || !lightboxImage) return;
-      lightboxImage.src = src;
-      lightboxImage.alt = alt || "Vergrote foto";
-      lightbox.classList.remove("hidden");
-      lightbox.setAttribute("aria-hidden", "false");
+      const lb = document.getElementById("lightbox");
+      const lbImg = document.getElementById("lightboxImage");
+      if (!lb || !lbImg) return;
+      lbImg.src = src;
+      lbImg.alt = alt || "Vergrote foto";
+      lb.classList.remove("hidden");
+      lb.setAttribute("aria-hidden", "false");
       document.body.style.overflow = "hidden";
     }
 
     function closeLightbox() {
-      const lightbox = document.getElementById("lightbox");
-      const lightboxImage = document.getElementById("lightboxImage");
-      if (!lightbox || !lightboxImage) return;
-      lightbox.classList.add("hidden");
-      lightbox.setAttribute("aria-hidden", "true");
-      lightboxImage.src = "";
+      const lb = document.getElementById("lightbox");
+      const lbImg = document.getElementById("lightboxImage");
+      if (!lb || !lbImg) return;
+      lb.classList.add("hidden");
+      lb.setAttribute("aria-hidden", "true");
+      lbImg.src = "";
       document.body.style.overflow = "";
     }
 
     window.addEventListener("DOMContentLoaded", () => {
       loadCollage();
 
-      const lightbox = document.getElementById("lightbox");
-      const lightboxClose = document.getElementById("lightboxClose");
-
-      if (lightboxClose) lightboxClose.addEventListener("click", closeLightbox);
-      if (lightbox) {
-        lightbox.addEventListener("click", (e) => {
-          if (e.target === lightbox) closeLightbox();
-        });
-      }
-      document.addEventListener("keydown", (e) => {
-        if (e.key === "Escape") closeLightbox();
-      });
+      const lb = document.getElementById("lightbox");
+      const lbClose = document.getElementById("lightboxClose");
+      if (lbClose) lbClose.addEventListener("click", closeLightbox);
+      if (lb) lb.addEventListener("click", e => { if (e.target === lb) closeLightbox(); });
+      document.addEventListener("keydown", e => { if (e.key === "Escape") closeLightbox(); });
     });
   </script>
 
