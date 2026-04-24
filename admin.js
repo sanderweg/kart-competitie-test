@@ -3,6 +3,7 @@ import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/
 
 const functions = getFunctions(auth.app, "europe-west1");
 const verstuurRoosterMailFn = httpsCallable(functions, "verstuurRoosterMail");
+const uitschrijvenFn = httpsCallable(functions, "uitschrijvenDeelnemer");
 
 const raceNameInput = document.getElementById("raceName");
 const raceDateInput = document.getElementById("raceDate");
@@ -744,6 +745,7 @@ function renderRegistrations() {
           <button type="button" class="secondary registration-status-btn" data-id="${item.id}" data-status="goedgekeurd">Goedkeuren</button>
           <button type="button" class="secondary registration-status-btn" data-id="${item.id}" data-status="reserve">Reserve</button>
           <button type="button" class="danger registration-status-btn" data-id="${item.id}" data-status="afgewezen">Afwijzen</button>
+          <button type="button" class="danger uitschrijven-btn" data-id="${item.id}">Uitschrijven</button>
         </div>` : ''}
       </div>
     </article>
@@ -786,6 +788,29 @@ function renderRegistrations() {
       } catch (error) {
         console.error(error);
         setMessage('Status bijwerken mislukt.', 'error');
+      }
+    });
+  });
+
+  document.querySelectorAll('.uitschrijven-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if (!currentUser) return;
+      const registrationId = btn.dataset.id;
+      const registration = registrations.find(item => item.id === registrationId);
+      if (!registration) return;
+      if (!confirm(`Weet je zeker dat je ${registration.naam} wilt uitschrijven? Er wordt een mail gestuurd.`)) return;
+
+      btn.disabled = true;
+      btn.textContent = 'Bezig…';
+
+      try {
+        const result = await uitschrijvenFn({ registrationId });
+        setMessage(`${registration.naam} is uitgeschreven en heeft een bevestigingsmail ontvangen.`, 'success');
+      } catch (error) {
+        console.error(error);
+        setMessage(`Uitschrijven mislukt: ${error?.message || 'Onbekende fout'}`, 'error');
+        btn.disabled = false;
+        btn.textContent = 'Uitschrijven';
       }
     });
   });
