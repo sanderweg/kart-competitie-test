@@ -272,13 +272,7 @@
       if (!collageTrack || collageTrack.dataset.ready === "true") return;
       collageTrack.dataset.ready = "true";
 
-      collageTrack.addEventListener("mouseenter", () => {
-        autoPaused = true;
-      });
-
-      collageTrack.addEventListener("mouseleave", () => {
-        if (!isDragging) autoPaused = false;
-      });
+      // carousel blijft draaien bij hover — alleen slepen pauzeert
 
       collageTrack.addEventListener("scroll", () => {
         normalizeLoop();
