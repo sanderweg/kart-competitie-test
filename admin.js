@@ -11,6 +11,7 @@ const raceDateInput = document.getElementById("raceDate");
 const raceTimeInput = document.getElementById("raceTime");
 const raceLocationInput = document.getElementById("raceLocation");
 const raceNoteInput = document.getElementById("raceNote");
+const raceMaxParticipantsInput = document.getElementById("raceMaxParticipants");
 const sprint1DriversList = document.getElementById("sprint1DriversList");
 const sprint2DriversList = document.getElementById("sprint2DriversList");
 const messageEl = document.getElementById("message");
@@ -41,7 +42,13 @@ let registrations = [];
 let currentUser = null;
 let editingRaceId = null;
 let selectedRaceId = null;
-const MAX_RACE_PARTICIPANTS = 22;
+const DEFAULT_MAX_PARTICIPANTS = 22;
+
+function getRaceMaxParticipants(race) {
+  const value = Number(race?.maxParticipants);
+  if (!Number.isFinite(value) || value < 1) return DEFAULT_MAX_PARTICIPANTS;
+  return value;
+}
 
 function setMessage(text, type = "") {
   messageEl.textContent = text || "";
@@ -49,7 +56,7 @@ function setMessage(text, type = "") {
 }
 
 function setControlsEnabled(enabled) {
-  [raceNameInput, raceDateInput, raceTimeInput, raceLocationInput, raceNoteInput, addSprint1DriverBtn, addSprint2DriverBtn, saveRaceBtn, saveDraftBtn, resetFormBtn, clearAllBtn].forEach(el => { if (el) el.disabled = !enabled; });
+  [raceNameInput, raceDateInput, raceTimeInput, raceLocationInput, raceNoteInput, raceMaxParticipantsInput, addSprint1DriverBtn, addSprint2DriverBtn, saveRaceBtn, saveDraftBtn, resetFormBtn, clearAllBtn].forEach(el => { if (el) el.disabled = !enabled; });
   document.querySelectorAll(".driver-name,.driver-position,.remove-driver").forEach(el => { el.disabled = !enabled; });
 }
 
@@ -305,6 +312,7 @@ function loadRaceIntoForm(race) {
   if (raceTimeInput) raceTimeInput.value = race.time || "";
   if (raceLocationInput) raceLocationInput.value = race.location || "";
   if (raceNoteInput) raceNoteInput.value = race.note || "";
+  if (raceMaxParticipantsInput) raceMaxParticipantsInput.value = race.maxParticipants || "";
   sprint1DriversList.innerHTML = "";
   sprint2DriversList.innerHTML = "";
   (race.sprint1Drivers || []).forEach(driver => addDriverRow(sprint1DriversList, driver.name, driver.position));
@@ -323,6 +331,11 @@ function collectRacePayload(validateForFinal = true) {
   const raceTime = raceTimeInput?.value || "";
   const raceLocation = String(raceLocationInput?.value || "").trim();
   const raceNote = String(raceNoteInput?.value || "").trim();
+  const rawMax = String(raceMaxParticipantsInput?.value || "").trim();
+  const parsedMax = rawMax === "" ? null : Number(rawMax);
+  const raceMaxParticipants = (parsedMax !== null && Number.isFinite(parsedMax) && parsedMax >= 1)
+    ? Math.floor(parsedMax)
+    : DEFAULT_MAX_PARTICIPANTS;
   const sprint1Drivers = getDriversFromList(sprint1DriversList);
   const sprint2Drivers = getDriversFromList(sprint2DriversList);
 
@@ -358,6 +371,7 @@ function collectRacePayload(validateForFinal = true) {
     raceTime,
     raceLocation,
     raceNote,
+    raceMaxParticipants,
     normalizedSprint1,
     normalizedSprint2
   };
@@ -384,6 +398,7 @@ async function saveDraftRace() {
       time: payload.raceTime,
       location: payload.raceLocation,
       note: payload.raceNote,
+      maxParticipants: payload.raceMaxParticipants,
       sprint1Drivers: payload.normalizedSprint1,
       sprint2Drivers: payload.normalizedSprint2,
       results,
@@ -423,6 +438,7 @@ async function saveRace() {
       time: payload.raceTime,
       location: payload.raceLocation,
       note: payload.raceNote,
+      maxParticipants: payload.raceMaxParticipants,
       sprint1Drivers: payload.normalizedSprint1,
       sprint2Drivers: payload.normalizedSprint2,
       results,
@@ -447,6 +463,7 @@ function resetForm(clearMessage = true) {
   if (raceTimeInput) raceTimeInput.value = "";
   if (raceLocationInput) raceLocationInput.value = "";
   if (raceNoteInput) raceNoteInput.value = "";
+  if (raceMaxParticipantsInput) raceMaxParticipantsInput.value = "";
   sprint1DriversList.innerHTML = "";
   sprint2DriversList.innerHTML = "";
   addDriverRow(sprint1DriversList);
@@ -532,6 +549,13 @@ function renderHistory() {
   }
 
   historyList.innerHTML = races.map(race => {
+    const raceMax = getRaceMaxParticipants(race);
+    const approvedCount = getRaceParticipantCount(race);
+    const pendingCount = registrations.filter(r => r.raceId === race.id && r.status !== "reserve").length;
+    const reserveCount = registrations.filter(r => r.raceId === race.id && r.status === "reserve").length;
+    const filledTotal = approvedCount + pendingCount;
+    const occupancyText = `${filledTotal} / ${raceMax} deelnemers`
+      + (reserveCount > 0 ? ` · ${reserveCount} op reservelijst` : "");
     const sprint1Items = (race.sprint1Drivers || []).slice().sort((a, b) => Number(a.position) - Number(b.position))
       .map(driver => `
         <li style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:6px;">
@@ -559,6 +583,7 @@ function renderHistory() {
           <div>
             <h3>${escapeHtml(race.name)}</h3>
             <div class="race-meta">${escapeHtml(formatDateTime(race.date, race.time))} · 2 sprint races van 10 minuten${race.isDraft ? " · Concept" : ""}${race.location ? " · " + escapeHtml(race.location) : ""}</div>
+            <div class="race-meta">👥 ${escapeHtml(occupancyText)}</div>
             ${race.note ? `<div class="race-meta">${escapeHtml(race.note)}</div>` : ""}
           </div>
           ${actions}
@@ -797,12 +822,13 @@ function renderRegistrations() {
           const race = races.find(item => item.id === registration.raceId);
           if (!race) throw new Error("Race niet gevonden");
           const currentCount = getRaceParticipantCount(race, registration.naam);
-          if (currentCount >= MAX_RACE_PARTICIPANTS) {
+          const raceMax = getRaceMaxParticipants(race);
+          if (currentCount >= raceMax) {
             await set(ref(db, `${REGISTRATIONS_PATH}/${registrationId}`), {
               ...registration,
               status: "reserve"
             });
-            setMessage(`Race ${race.name} zit vol. ${registration.naam} staat nu op de reservelijst.`, 'error');
+            setMessage(`Race ${race.name} zit vol (max ${raceMax}). ${registration.naam} staat nu op de reservelijst.`, 'error');
             return;
           }
         }

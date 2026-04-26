@@ -1,6 +1,12 @@
 import { db, DB_PATH, REGISTRATIONS_PATH, REGISTRATIONS_HISTORY_PATH, ref, push, set, onValue, get, escapeHtml } from "./firebase.js";
 
-const MAX_RACE_PARTICIPANTS = 22;
+const DEFAULT_MAX_PARTICIPANTS = 22;
+
+function getRaceMaxParticipants(race) {
+  const value = Number(race?.maxParticipants);
+  if (!Number.isFinite(value) || value < 1) return DEFAULT_MAX_PARTICIPANTS;
+  return value;
+}
 
 const raceSelect = document.getElementById("raceSelect");
 const naamInput = document.getElementById("naam");
@@ -8,6 +14,7 @@ const emailInput = document.getElementById("email");
 const telefoonInput = document.getElementById("telefoon");
 const submitBtn = document.getElementById("submitBtn");
 const messageEl = document.getElementById("message");
+const capacityInfoEl = document.getElementById("capacityInfo");
 
 let openRaces = [];
 let existingRegistrations = [];
@@ -34,6 +41,7 @@ function renderRaceOptions() {
   if (!openRaces.length) {
     raceSelect.innerHTML = '<option value="">Geen open races beschikbaar</option>';
     if (submitBtn) submitBtn.disabled = true;
+    renderCapacityInfo();
     return;
   }
 
@@ -42,6 +50,34 @@ function renderRaceOptions() {
   `).join("");
 
   if (submitBtn) submitBtn.disabled = false;
+  renderCapacityInfo();
+}
+
+function renderCapacityInfo() {
+  if (!capacityInfoEl) return;
+
+  const raceId = raceSelect?.value || "";
+  const race = openRaces.find(item => item.id === raceId);
+
+  if (!race) {
+    capacityInfoEl.textContent = "";
+    capacityInfoEl.className = "capacity-info";
+    return;
+  }
+
+  const max = getRaceMaxParticipants(race);
+  const filled = getFilledMainSpots(raceId, race);
+  const reserveCount = existingRegistrations.filter(item => item.raceId === raceId && item.status === "reserve").length;
+  const free = Math.max(0, max - filled);
+
+  if (free === 0) {
+    capacityInfoEl.className = "capacity-info capacity-full";
+    capacityInfoEl.innerHTML = `⚠️ <strong>Deze race zit vol</strong> (${filled}/${max}). Nieuwe inschrijvingen komen op de reservelijst${reserveCount > 0 ? ` (${reserveCount} al op de wachtlijst)` : ""}.`;
+  } else {
+    capacityInfoEl.className = "capacity-info capacity-open";
+    const word = free === 1 ? "plek" : "plekken";
+    capacityInfoEl.innerHTML = `✅ Nog <strong>${free} ${word}</strong> beschikbaar (${filled}/${max} bezet).`;
+  }
 }
 
 function getApprovedNameKeysForRace(race) {
@@ -107,6 +143,7 @@ onValue(ref(db, DB_PATH), snapshot => {
 onValue(ref(db, REGISTRATIONS_PATH), snapshot => {
   const data = snapshot.val() || {};
   existingRegistrations = Object.values(data);
+  renderCapacityInfo();
 });
 
 onValue(ref(db, REGISTRATIONS_HISTORY_PATH), snapshot => {
@@ -152,7 +189,8 @@ submitBtn?.addEventListener("click", async () => {
     }
 
     const filledMainSpots = getFilledMainSpots(raceId, freshRace, freshRegistrations);
-    const nextStatus = filledMainSpots >= MAX_RACE_PARTICIPANTS ? "reserve" : "nieuw";
+    const raceMax = getRaceMaxParticipants(freshRace);
+    const nextStatus = filledMainSpots >= raceMax ? "reserve" : "nieuw";
 
     const newRef = push(ref(db, REGISTRATIONS_PATH));
     const payload = {
@@ -185,5 +223,10 @@ submitBtn?.addEventListener("click", async () => {
   } finally {
     isSubmitting = false;
     if (submitBtn) submitBtn.disabled = !openRaces.length;
+    renderCapacityInfo();
   }
+});
+
+raceSelect?.addEventListener("change", () => {
+  renderCapacityInfo();
 });

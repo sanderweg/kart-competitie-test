@@ -5,6 +5,28 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Inschrijven voor race</title>
   <link rel="stylesheet" href="styles.css" />
+  <style>
+    .capacity-info {
+      margin-top: 10px;
+      padding: 10px 14px;
+      border-radius: 12px;
+      font-size: 14px;
+      line-height: 1.4;
+    }
+    .capacity-info:empty {
+      display: none;
+    }
+    .capacity-info.capacity-open {
+      background: rgba(0, 211, 167, 0.10);
+      border: 1px solid rgba(0, 211, 167, 0.30);
+      color: #7ef0c4;
+    }
+    .capacity-info.capacity-full {
+      background: rgba(217, 83, 79, 0.12);
+      border: 1px solid rgba(217, 83, 79, 0.35);
+      color: #ffb4b1;
+    }
+  </style>
 </head>
 <body class="landing-body">
   <div class="landing-bg"></div>
@@ -18,6 +40,7 @@
       <div class="field">
         <label for="raceSelect">Race</label>
         <select id="raceSelect"></select>
+        <div id="capacityInfo" class="capacity-info"></div>
       </div>
 
       <div class="field">
